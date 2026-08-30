@@ -88,16 +88,6 @@ function numberedIcon(n: number, color: string): L.DivIcon {
   });
 }
 
-function endpointIcon(symbol: string, color: string): L.DivIcon {
-  return L.divIcon({
-    className: 'map-endpoint',
-    html: `<span style="background:${color}">${symbol}</span>`,
-    iconSize: [22, 22],
-    iconAnchor: [11, 11],
-    popupAnchor: [0, -12],
-  });
-}
-
 async function getPlotGroups(): Promise<PlotGroup[]> {
   const [plots, rawPhotos] = await Promise.all([getAllPlots(), getAllPhotos()]);
   const photos = rawPhotos
@@ -352,14 +342,13 @@ async function exportMapImage(): Promise<void> {
         drawCircleMarker(mapCtx, pt.x, pt.y, 14, color, String(idx + 1), '#0a0a0a', 12);
       });
     });
-    tracks.forEach((track) => {
+    tracks.forEach((track, trackIdx) => {
       if (track.points.length === 0) return;
-      const first = track.points[0];
-      const last = track.points[track.points.length - 1];
-      const startPt = map.latLngToContainerPoint([first.lat, first.lon]);
-      const endPt = map.latLngToContainerPoint([last.lat, last.lon]);
-      drawCircleMarker(mapCtx, startPt.x, startPt.y, 11, '#2ECC71', '▶', '#ffffff', 10);
-      drawCircleMarker(mapCtx, endPt.x, endPt.y, 11, '#FF4D4F', '■', '#ffffff', 10);
+      const color = track.color || TRACK_COLORS[trackIdx % TRACK_COLORS.length];
+      track.points.forEach((point, idx) => {
+        const pt = map.latLngToContainerPoint([point.lat, point.lon]);
+        drawCircleMarker(mapCtx, pt.x, pt.y, 12, color, String(idx + 1), '#0a0a0a', 11);
+      });
     });
   }
 
@@ -528,34 +517,32 @@ export async function renderMap(): Promise<void> {
       L.polyline(trackLatLngs, { color, weight: 4, opacity: 0.85 }).addTo(tracksLayer as L.LayerGroup);
     }
 
-    const first = track.points[0];
-    const last = track.points[track.points.length - 1];
     const label = track.name || (track.kind === 'trail' ? 'Trilha' : 'Vídeo');
 
-    const startMarker = L.marker([first.lat, first.lon], { icon: endpointIcon('▶', '#2ECC71') });
-    startMarker.bindPopup(
-      `<div class="map-popup">
-        <div class="map-popup-title">${label} · início</div>
-        <div class="map-popup-address">${track.startAddress || ''}</div>
-        <div class="map-popup-coords">${first.lat.toFixed(6)}, ${first.lon.toFixed(6)}</div>
-        <div class="map-popup-date">${formatDateTime(track.datetime)}</div>
-      </div>`
-    );
-    tracksLayer?.addLayer(startMarker);
+    track.points.forEach((point, idx) => {
+      const isFirst = idx === 0;
+      const isLast = idx === track.points.length - 1;
+      const marker = L.marker([point.lat, point.lon], { icon: numberedIcon(idx + 1, color) });
 
-    const endStats = [formatDuration(track.duration), formatDistance(track.distance), `méd. ${track.avgSpeed.toFixed(1)} km/h`];
-    if (track.closed && track.areaHectares) endStats.push(`${track.areaHectares.toFixed(2)} ha`);
+      const lines = [`<div class="map-popup-title">${label} · Ponto #${idx + 1}</div>`];
+      if (isFirst && track.startAddress) lines.push(`<div class="map-popup-address">${track.startAddress}</div>`);
+      if (isLast && track.endAddress) lines.push(`<div class="map-popup-address">${track.endAddress}</div>`);
+      lines.push(`<div class="map-popup-coords">${point.lat.toFixed(6)}, ${point.lon.toFixed(6)}</div>`);
+      lines.push(`<div class="map-popup-date">${formatDateTime(point.timestamp)}</div>`);
+      const extras: string[] = [];
+      if (point.alt !== null) extras.push(`alt. ${point.alt.toFixed(0)} m`);
+      if (point.speed !== null) extras.push(`${point.speed.toFixed(1)} km/h`);
+      if (extras.length > 0) lines.push(`<div class="map-popup-date">${extras.join(' · ')}</div>`);
 
-    const endMarker = L.marker([last.lat, last.lon], { icon: endpointIcon('■', '#FF4D4F') });
-    endMarker.bindPopup(
-      `<div class="map-popup">
-        <div class="map-popup-title">${label} · fim</div>
-        <div class="map-popup-address">${track.endAddress || ''}</div>
-        <div class="map-popup-coords">${last.lat.toFixed(6)}, ${last.lon.toFixed(6)}</div>
-        <div class="map-popup-date">${endStats.join(' · ')}</div>
-      </div>`
-    );
-    tracksLayer?.addLayer(endMarker);
+      if (isLast) {
+        const summaryParts = [formatDuration(track.duration), formatDistance(track.distance), `méd. ${track.avgSpeed.toFixed(1)} km/h`];
+        if (track.closed && track.areaHectares) summaryParts.push(`${track.areaHectares.toFixed(2)} ha`);
+        lines.push(`<div class="map-popup-date">${summaryParts.join(' · ')}</div>`);
+      }
+
+      marker.bindPopup(`<div class="map-popup">${lines.join('')}</div>`);
+      tracksLayer?.addLayer(marker);
+    });
   });
 
   if (allBoundsPoints.length === 1) {
