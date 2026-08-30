@@ -24,6 +24,15 @@ let activeBaseLayer: TileLayerOffline | null = null;
 let saveTilesControl: ControlSaveTiles | null = null;
 let offlineDownloadInProgress = false;
 
+// Which saved areas/trails are hidden from the map right now — lets someone
+// isolate a single item instead of always seeing everything mixed together.
+// Session-only: resets to "everything visible" each time the map screen opens.
+const hiddenPlotIds = new Set<number>();
+const hiddenTrackIds = new Set<number>();
+
+const EYE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>';
+
 interface RouteSegment {
   label: string;
   meters: number;
@@ -198,28 +207,34 @@ function ensureMap(): L.Map {
   return mapInstance;
 }
 
+function toggleButtonHtml(kind: 'plot' | 'track', id: number, hidden: boolean): string {
+  return `<button type="button" class="map-summary-toggle${hidden ? ' hidden-item' : ''}" data-kind="${kind}" data-id="${id}" aria-label="Mostrar ou ocultar no mapa">${hidden ? EYE_OFF_ICON : EYE_ICON}</button>`;
+}
+
 async function renderSummaryPanel(): Promise<void> {
-  const groups = await getPlotGroups();
+  const [groups, tracks] = await Promise.all([getPlotGroups(), getAllTracks()]);
   const list = el('map-summary-list');
   list.innerHTML = '';
 
-  if (groups.length === 0) {
+  if (groups.length === 0 && tracks.length === 0) {
     list.innerHTML = '<div class="map-summary-empty">Capture pelo menos 2 pontos para ver as distâncias.</div>';
     return;
   }
 
   groups.forEach((group, groupIdx) => {
+    if (group.plot.id === undefined) return;
     const color = PLOT_COLORS[groupIdx % PLOT_COLORS.length];
     const { segments, total } = computeGroupSegments(group.photos);
     const hectares = computePolygonAreaHectares(group.photos);
+    const hidden = hiddenPlotIds.has(group.plot.id);
 
     const section = document.createElement('div');
-    section.className = 'map-summary-group';
+    section.className = hidden ? 'map-summary-group is-hidden' : 'map-summary-group';
 
     const header = document.createElement('div');
     header.className = 'map-summary-group-header';
     const statusLabel = group.plot.finalizedAt ? 'Finalizada' : 'Atual';
-    header.innerHTML = `<span class="map-summary-swatch" style="background:${color}"></span><span>${group.plot.name}</span><span class="map-summary-status">${statusLabel}</span>`;
+    header.innerHTML = `<span class="map-summary-swatch" style="background:${color}"></span><span>${group.plot.name}</span><span class="map-summary-status">${statusLabel}</span>${toggleButtonHtml('plot', group.plot.id, hidden)}`;
     section.appendChild(header);
 
     if (segments.length === 0) {
@@ -246,6 +261,43 @@ async function renderSummaryPanel(): Promise<void> {
         areaRow.innerHTML = `<span>Área</span><span>${hectares.toFixed(2)} ha</span>`;
         section.appendChild(areaRow);
       }
+    }
+
+    list.appendChild(section);
+  });
+
+  tracks.forEach((track, trackIdx) => {
+    if (track.id === undefined || track.points.length === 0) return;
+    const color = track.color || TRACK_COLORS[trackIdx % TRACK_COLORS.length];
+    const hidden = hiddenTrackIds.has(track.id);
+    const label = track.name || (track.kind === 'trail' ? 'Trilha' : 'Vídeo');
+
+    const section = document.createElement('div');
+    section.className = hidden ? 'map-summary-group is-hidden' : 'map-summary-group';
+
+    const header = document.createElement('div');
+    header.className = 'map-summary-group-header';
+    header.innerHTML = `<span class="map-summary-swatch" style="background:${color}"></span><span>${label}</span><span class="map-summary-status">${track.closed ? 'Área' : 'Rota'}</span>${toggleButtonHtml('track', track.id, hidden)}`;
+    section.appendChild(header);
+
+    const rows = [
+      [track.points.length === 1 ? '1 ponto' : `${track.points.length} pontos`, ''],
+      [track.closed ? 'Perímetro' : 'Distância', formatDistance(track.distance)],
+      ['Duração', formatDuration(track.duration)],
+      ['Vel. média', `${track.avgSpeed.toFixed(1)} km/h`],
+    ];
+    rows.forEach(([label2, value]) => {
+      const row = document.createElement('div');
+      row.className = 'map-summary-row';
+      row.innerHTML = value ? `<span>${label2}</span><span>${value}</span>` : `<span>${label2}</span>`;
+      section.appendChild(row);
+    });
+
+    if (track.closed && track.areaHectares) {
+      const areaRow = document.createElement('div');
+      areaRow.className = 'map-summary-row map-summary-subtotal';
+      areaRow.innerHTML = `<span>Área</span><span>${track.areaHectares.toFixed(2)} ha</span>`;
+      section.appendChild(areaRow);
     }
 
     list.appendChild(section);
@@ -316,7 +368,9 @@ async function exportMapImage(): Promise<void> {
     if (overlayPane) overlayPane.style.visibility = '';
   }
 
-  const [groups, tracks] = await Promise.all([getPlotGroups(), getAllTracks()]);
+  const [allGroups, allTracks] = await Promise.all([getPlotGroups(), getAllTracks()]);
+  const groups = allGroups.filter((g) => g.plot.id === undefined || !hiddenPlotIds.has(g.plot.id));
+  const tracks = allTracks.filter((t) => t.id === undefined || !hiddenTrackIds.has(t.id));
 
   const mapCtx = mapCanvas.getContext('2d');
   if (mapCtx) {
@@ -478,6 +532,7 @@ export async function renderMap(): Promise<void> {
   const allBoundsPoints: L.LatLngTuple[] = [];
 
   groups.forEach((group, groupIdx) => {
+    if (group.plot.id !== undefined && hiddenPlotIds.has(group.plot.id)) return;
     const color = PLOT_COLORS[groupIdx % PLOT_COLORS.length];
     const latLngs: L.LatLngTuple[] = group.photos.map((p) => [p.lat, p.lon]);
     allBoundsPoints.push(...latLngs);
@@ -507,6 +562,7 @@ export async function renderMap(): Promise<void> {
 
   tracks.forEach((track: TrackRecord, trackIdx) => {
     if (track.points.length === 0) return;
+    if (track.id !== undefined && hiddenTrackIds.has(track.id)) return;
     const color = track.color || TRACK_COLORS[trackIdx % TRACK_COLORS.length];
     const trackLatLngs: L.LatLngTuple[] = track.points.map((p) => [p.lat, p.lon]);
     allBoundsPoints.push(...trackLatLngs);
@@ -599,4 +655,15 @@ export function initMap(): void {
     exportMapImage();
   });
   el('map-offline-btn').addEventListener('click', downloadCurrentArea);
+
+  el('map-summary-list').addEventListener('click', (event) => {
+    const btn = (event.target as HTMLElement).closest<HTMLButtonElement>('.map-summary-toggle');
+    if (!btn) return;
+    const id = Number(btn.dataset.id);
+    if (Number.isNaN(id)) return;
+    const set = btn.dataset.kind === 'plot' ? hiddenPlotIds : hiddenTrackIds;
+    if (set.has(id)) set.delete(id);
+    else set.add(id);
+    renderMap();
+  });
 }

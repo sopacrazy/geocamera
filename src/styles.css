@@ -250,6 +250,14 @@ body, html {
 .map-summary-row.map-summary-subtotal { font-weight: 800; color: var(--ink); padding-top: 8px; }
 .map-summary-row.map-summary-subtotal span:first-child { color: var(--ink); }
 .map-summary-empty { padding: 14px 0; font-size: 12.5px; color: var(--ink-faint); }
+.map-summary-toggle {
+  margin-left: 8px; background: none; border: none; color: var(--ink-dim); cursor: pointer;
+  padding: 4px; display: flex; align-items: center; flex-shrink: 0;
+}
+.map-summary-toggle svg { width: 17px; height: 17px; display: block; }
+.map-summary-toggle.hidden-item { color: var(--ink-faint); }
+.map-summary-group.is-hidden { opacity: 0.45; }
+.map-summary-group.is-hidden .map-summary-swatch { filter: grayscale(1); }
 
 /* leaflet.offline ships its own save/remove buttons; we drive downloads from
    our own toolbar icon instead, so keep its default control invisible. */
