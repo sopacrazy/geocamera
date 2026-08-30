@@ -414,6 +414,33 @@
       </div>
     </div>
 
+    <div id="gps-wait-modal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-icon gps-wait-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+        </div>
+        <h2>Calibrando GPS…</h2>
+        <p>Aguarde o sinal ficar preciso antes de abrir a câmera. Fique em área aberta, se possível.</p>
+        <div id="gps-wait-accuracy">-- m</div>
+        <button type="button" id="gps-wait-skip-btn" class="btn-pill btn-outline hidden">Continuar mesmo assim</button>
+      </div>
+    </div>
+
+    <div id="plot-name-modal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+        </div>
+        <h2>Nomear área</h2>
+        <p>Dê um nome pra identificar esta área no mapa depois.</p>
+        <input type="text" id="plot-name-input" class="modal-input" maxlength="40" placeholder="Ex: Talhão Norte">
+        <div class="btn-row">
+          <button type="button" id="plot-name-cancel-btn" class="btn-pill btn-outline">Cancelar</button>
+          <button type="button" id="plot-name-confirm-btn" class="btn-pill">Finalizar</button>
+        </div>
+      </div>
+    </div>
+
     <div id="plot-finalized-modal" class="modal" style="display: none;">
       <div class="modal-content">
         <div class="modal-icon">

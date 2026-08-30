@@ -1,5 +1,5 @@
 import { el } from './dom';
-import { addPhoto, deletePhoto, addTrack, getOrCreateActivePlot, finalizeActivePlot, getAllPhotos, type TrackPoint, type PlotRecord } from './db';
+import { addPhoto, deletePhoto, addTrack, getOrCreateActivePlot, finalizeActivePlot, updatePlot, getAllPhotos, type TrackPoint, type PlotRecord } from './db';
 import { themeColor } from './theme';
 import { saveFile } from './save-file';
 
@@ -17,6 +17,10 @@ interface InitCameraOptions {
 }
 
 const TUTORIAL_SEEN_KEY = 'geocamera_compass_tutorial_seen';
+
+// The camera/HUD only opens once the GPS fix is this precise (or the user taps
+// "Continuar mesmo assim") — avoids capturing points like the (0,0) Null Island bug.
+const MIN_CAPTURE_ACCURACY_METERS = 30;
 
 // Video capture is shelved for now — focus is the photo flow. Flip this back on
 // (and restore the mode-toggle visibility below) to bring video mode back.
@@ -40,6 +44,9 @@ let lastLat: number | null = null;
 let lastLon: number | null = null;
 let currentSavedPhotoId: number | null = null;
 let activePlot: PlotRecord | null = null;
+let pendingFinalizePlot: PlotRecord | null = null;
+let cameraActivated = false;
+let gpsWaitSkipTimer: ReturnType<typeof setTimeout> | null = null;
 
 let onBackCallback: (() => void) | undefined;
 let onPhotoChangeCallback: (() => void) | undefined;
@@ -161,6 +168,23 @@ async function startCamera(): Promise<void> {
   }
 }
 
+function showGpsWaitModal(): void {
+  el('gps-wait-modal').style.display = 'flex';
+  el('gps-wait-skip-btn').classList.add('hidden');
+  el('gps-wait-accuracy').innerText = '-- m';
+  gpsWaitSkipTimer = setTimeout(() => {
+    el('gps-wait-skip-btn').classList.remove('hidden');
+  }, 8000);
+}
+
+function hideGpsWaitModal(): void {
+  el('gps-wait-modal').style.display = 'none';
+  if (gpsWaitSkipTimer) {
+    clearTimeout(gpsWaitSkipTimer);
+    gpsWaitSkipTimer = null;
+  }
+}
+
 function startGeolocation(): void {
   if (!navigator.geolocation) throw new Error('Geolocalização não suportada');
   geoWatchId = navigator.geolocation.watchPosition(
@@ -174,6 +198,14 @@ function startGeolocation(): void {
       el('coords').innerText = `LAT ${currentLat.toFixed(6)} · LON ${currentLon.toFixed(6)}`;
       el('altitude').innerText = `${currentAlt !== null ? currentAlt.toFixed(1) + ' m' : '--'}`;
       el('acc-chip').innerText = `${currentAcc.toFixed(1)} m`;
+
+      if (!cameraActivated) {
+        el('gps-wait-accuracy').innerText = `${currentAcc.toFixed(1)} m`;
+        if (currentAcc <= MIN_CAPTURE_ACCURACY_METERS) {
+          cameraActivated = true;
+          activateCameraAfterGps();
+        }
+      }
 
       if (lastLat === null || lastLon === null || getDistanceMeters(lastLat, lastLon, currentLat, currentLon) > 10) {
         lastLat = currentLat;
@@ -310,6 +342,7 @@ function showError(msg: string): void {
   el('error-message').innerText = msg;
   el('error-modal').style.display = 'flex';
   el('permission-modal').style.display = 'none';
+  hideGpsWaitModal();
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
@@ -709,10 +742,20 @@ async function checkPermissionsGranted(): Promise<boolean> {
 
 async function beginCameraSession(): Promise<void> {
   try {
-    await startCamera();
-    startGeolocation();
-    requestOrientation();
     el('permission-modal').style.display = 'none';
+    cameraActivated = false;
+    showGpsWaitModal();
+    startGeolocation();
+  } catch (err) {
+    showError(err instanceof Error ? err.message : String(err));
+  }
+}
+
+async function activateCameraAfterGps(): Promise<void> {
+  try {
+    await startCamera();
+    requestOrientation();
+    hideGpsWaitModal();
     el('top-bar').style.display = 'flex';
     el('hud-overlay').style.display = 'flex';
     el('capture-shell').classList.remove('hidden');
@@ -724,6 +767,7 @@ async function beginCameraSession(): Promise<void> {
       setTimeout(showTutorial, 600);
     }
   } catch (err) {
+    cameraActivated = false;
     showError(err instanceof Error ? err.message : String(err));
   }
 }
@@ -743,6 +787,8 @@ export function resetCameraUI(): void {
   el('tutorial-modal').style.display = 'none';
   el('video-preview-modal').style.display = 'none';
   el('plot-finalized-modal').style.display = 'none';
+  el('plot-name-modal').style.display = 'none';
+  hideGpsWaitModal();
   el('camera-toast').classList.add('hidden');
   el('top-bar').style.display = 'none';
   el('hud-overlay').style.display = 'none';
@@ -756,6 +802,8 @@ export function resetCameraUI(): void {
   displayedHeading = 0;
   currentSavedPhotoId = null;
   activePlot = null;
+  pendingFinalizePlot = null;
+  cameraActivated = false;
   el('compass-container').classList.add('unavailable');
   setMode('photo');
   maybeAutoStartCamera();
@@ -783,6 +831,7 @@ export function stopCamera(): void {
   hasGpsFix = false;
   lastLat = null;
   lastLon = null;
+  hideGpsWaitModal();
 }
 
 export function initCamera({ onBack, onPhotoChange }: InitCameraOptions = {}): void {
@@ -811,17 +860,42 @@ export function initCamera({ onBack, onPhotoChange }: InitCameraOptions = {}): v
   el('plot-finalize-btn').addEventListener('click', async () => {
     const btn = el<HTMLButtonElement>('plot-finalize-btn');
     if (btn.disabled) return;
+    const finishedPlot = activePlot ?? await getOrCreateActivePlot();
+    pendingFinalizePlot = finishedPlot;
+    const nameInput = el<HTMLInputElement>('plot-name-input');
+    nameInput.value = finishedPlot.name;
+    el('plot-name-modal').style.display = 'flex';
+    setTimeout(() => { nameInput.focus(); nameInput.select(); }, 50);
+  });
+
+  el('plot-name-cancel-btn').addEventListener('click', () => {
+    pendingFinalizePlot = null;
+    el('plot-name-modal').style.display = 'none';
+  });
+
+  el('plot-name-confirm-btn').addEventListener('click', async () => {
+    const plot = pendingFinalizePlot;
+    if (!plot) return;
+    const btn = el<HTMLButtonElement>('plot-name-confirm-btn');
+    if (btn.disabled) return;
     btn.disabled = true;
     try {
-      const finishedPlot = activePlot ?? await getOrCreateActivePlot();
+      const typedName = el<HTMLInputElement>('plot-name-input').value.trim();
+      const finalName = typedName || plot.name;
+      if (finalName !== plot.name && plot.id !== undefined) {
+        await updatePlot({ ...plot, name: finalName });
+      }
+
       const finishedPhotos = (await getAllPhotos())
-        .filter((p) => p.plotId === finishedPlot.id)
+        .filter((p) => p.plotId === plot.id)
         .sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
 
       await finalizeActivePlot();
       activePlot = null;
+      pendingFinalizePlot = null;
       onPhotoChangeCallback?.();
       btn.disabled = false;
+      el('plot-name-modal').style.display = 'none';
 
       const perimeter = computePlotPerimeter(finishedPhotos);
       const hectares = computePlotAreaHectares(finishedPhotos);
@@ -829,7 +903,7 @@ export function initCamera({ onBack, onPhotoChange }: InitCameraOptions = {}): v
       if (perimeter > 0) parts.push(formatDistanceLabel(perimeter));
       if (hectares > 0) parts.push(`${hectares.toFixed(2)} ha`);
 
-      el('plot-finalized-title').innerText = `${finishedPlot.name} finalizada`;
+      el('plot-finalized-title').innerText = `${finalName} finalizada`;
       el('plot-finalized-summary').innerText = parts.join(' · ');
       el('plot-finalized-modal').style.display = 'flex';
     } catch (err) {
@@ -841,6 +915,12 @@ export function initCamera({ onBack, onPhotoChange }: InitCameraOptions = {}): v
   el('plot-finalized-ok-btn').addEventListener('click', () => {
     el('plot-finalized-modal').style.display = 'none';
     onBackCallback?.();
+  });
+
+  el('gps-wait-skip-btn').addEventListener('click', () => {
+    if (cameraActivated) return;
+    cameraActivated = true;
+    activateCameraAfterGps();
   });
 
   el('capture-btn').addEventListener('click', () => {
