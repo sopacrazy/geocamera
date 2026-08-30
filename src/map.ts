@@ -211,6 +211,86 @@ function toggleButtonHtml(kind: 'plot' | 'track', id: number, hidden: boolean): 
   return `<button type="button" class="map-summary-toggle${hidden ? ' hidden-item' : ''}" data-kind="${kind}" data-id="${id}" aria-label="Mostrar ou ocultar no mapa">${hidden ? EYE_OFF_ICON : EYE_ICON}</button>`;
 }
 
+// Restricts the map to a single saved plot/trail so opening "Mapa" never
+// dumps every capture on top of each other — the picker screen calls this
+// right before switching to the actual map screen.
+async function selectSingleMapItem(kind: 'plot' | 'track', id: number): Promise<void> {
+  const [groups, tracks] = await Promise.all([getPlotGroups(), getAllTracks()]);
+  hiddenPlotIds.clear();
+  hiddenTrackIds.clear();
+  groups.forEach((g) => {
+    if (g.plot.id !== undefined && !(kind === 'plot' && g.plot.id === id)) hiddenPlotIds.add(g.plot.id);
+  });
+  tracks.forEach((t) => {
+    if (t.id !== undefined && !(kind === 'track' && t.id === id)) hiddenTrackIds.add(t.id);
+  });
+}
+
+function showAllMapItems(): void {
+  hiddenPlotIds.clear();
+  hiddenTrackIds.clear();
+}
+
+export async function renderMapPicker(): Promise<void> {
+  const [groups, tracks] = await Promise.all([getPlotGroups(), getAllTracks()]);
+  const list = el('map-picker-list');
+  const empty = el('map-picker-empty');
+  list.innerHTML = '';
+
+  if (groups.length === 0 && tracks.length === 0) {
+    list.hidden = true;
+    empty.hidden = false;
+    return;
+  }
+  list.hidden = false;
+  empty.hidden = true;
+
+  const allBtn = document.createElement('button');
+  allBtn.type = 'button';
+  allBtn.className = 'btn-pill btn-outline picker-all-btn';
+  allBtn.innerText = 'Ver tudo junto no mapa';
+  allBtn.dataset.action = 'all';
+  list.appendChild(allBtn);
+
+  groups.forEach((group, groupIdx) => {
+    if (group.plot.id === undefined) return;
+    const color = PLOT_COLORS[groupIdx % PLOT_COLORS.length];
+    const statusLabel = group.plot.finalizedAt ? 'Finalizada' : 'Atual';
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'picker-item';
+    item.dataset.kind = 'plot';
+    item.dataset.id = String(group.plot.id);
+    item.innerHTML = `
+      <span class="picker-item-swatch" style="background:${color}"></span>
+      <span class="picker-item-body">
+        <span class="picker-item-name">${group.plot.name}</span>
+        <span class="picker-item-sub">${group.photos.length === 1 ? '1 foto' : `${group.photos.length} fotos`}</span>
+      </span>
+      <span class="picker-item-type">Área<br>${statusLabel}</span>`;
+    list.appendChild(item);
+  });
+
+  tracks.forEach((track, trackIdx) => {
+    if (track.id === undefined || track.points.length === 0) return;
+    const color = track.color || TRACK_COLORS[trackIdx % TRACK_COLORS.length];
+    const label = track.name || (track.kind === 'trail' ? 'Trilha' : 'Vídeo');
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'picker-item';
+    item.dataset.kind = 'track';
+    item.dataset.id = String(track.id);
+    item.innerHTML = `
+      <span class="picker-item-swatch" style="background:${color}"></span>
+      <span class="picker-item-body">
+        <span class="picker-item-name">${label}</span>
+        <span class="picker-item-sub">${track.points.length === 1 ? '1 ponto' : `${track.points.length} pontos`} · ${formatDateTime(track.datetime)}</span>
+      </span>
+      <span class="picker-item-type">${track.closed ? 'Área' : 'Trilha'}</span>`;
+    list.appendChild(item);
+  });
+}
+
 async function renderSummaryPanel(): Promise<void> {
   const [groups, tracks] = await Promise.all([getPlotGroups(), getAllTracks()]);
   const list = el('map-summary-list');
@@ -513,10 +593,12 @@ export async function renderMap(): Promise<void> {
   markersLayer?.clearLayers();
   tracksLayer?.clearLayers();
 
-  const totalPhotos = groups.reduce((s, g) => s + g.photos.length, 0);
+  const visibleGroups = groups.filter((g) => g.plot.id === undefined || !hiddenPlotIds.has(g.plot.id));
+  const visibleTracks = tracks.filter((t) => t.id === undefined || !hiddenTrackIds.has(t.id));
+  const totalPhotos = visibleGroups.reduce((s, g) => s + g.photos.length, 0);
   const countParts: string[] = [];
   if (totalPhotos > 0) countParts.push(totalPhotos === 1 ? '1 ponto' : `${totalPhotos} pontos`);
-  if (tracks.length > 0) countParts.push(tracks.length === 1 ? '1 trilha' : `${tracks.length} trilhas`);
+  if (visibleTracks.length > 0) countParts.push(visibleTracks.length === 1 ? '1 trilha' : `${visibleTracks.length} trilhas`);
   countEl.innerText = countParts.length > 0 ? countParts.join(' · ') : '0 pontos';
 
   await renderSummaryPanel();
@@ -644,7 +726,23 @@ function downloadCurrentArea(): void {
   (saveTilesControl as any)._saveTiles();
 }
 
-export function initMap(): void {
+export function initMap(callbacks?: { onSelectItem?: () => void }): void {
+  el('map-picker-list').addEventListener('click', async (event) => {
+    const target = event.target as HTMLElement;
+    if (target.closest('.picker-all-btn')) {
+      showAllMapItems();
+      callbacks?.onSelectItem?.();
+      return;
+    }
+    const item = target.closest<HTMLElement>('.picker-item');
+    if (!item) return;
+    const kind = item.dataset.kind === 'track' ? 'track' : 'plot';
+    const id = Number(item.dataset.id);
+    if (Number.isNaN(id)) return;
+    await selectSingleMapItem(kind, id);
+    callbacks?.onSelectItem?.();
+  });
+
   el('map-count-btn').addEventListener('click', () => {
     el('map-summary').classList.toggle('hidden');
   });

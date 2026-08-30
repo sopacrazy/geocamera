@@ -2,16 +2,17 @@ import { el } from './dom';
 import { initTheme, renderThemeList } from './theme';
 import { initCamera, stopCamera, resetCameraUI } from './camera';
 import { initGallery, renderGallery } from './gallery';
-import { initMap, renderMap } from './map';
+import { initMap, renderMap, renderMapPicker } from './map';
 import { initTrail, resetTrailSetup, resetTrailActive } from './trail';
 import { getAllPhotos } from './db';
 
-type ScreenName = 'home' | 'camera' | 'gallery' | 'map' | 'theme' | 'trail-setup' | 'trail-active';
+type ScreenName = 'home' | 'camera' | 'gallery' | 'map-picker' | 'map' | 'theme' | 'trail-setup' | 'trail-active';
 
 const screenEls: Record<ScreenName, HTMLElement> = {
   home: el('screen-home'),
   camera: el('screen-camera'),
   gallery: el('screen-gallery'),
+  'map-picker': el('screen-map-picker'),
   map: el('screen-map'),
   theme: el('screen-theme'),
   'trail-setup': el('screen-trail-setup'),
@@ -67,6 +68,7 @@ function showScreen(name: ScreenName): void {
   }
 
   if (name === 'gallery') renderGallery();
+  if (name === 'map-picker') renderMapPicker();
   if (name === 'map') renderMap();
   if (name === 'theme') renderThemeList();
   if (name === 'home') updateHomeBadge();
@@ -81,7 +83,7 @@ function init(): void {
   });
 
   initGallery({ onPhotoChange: updateHomeBadge });
-  initMap();
+  initMap({ onSelectItem: () => showScreen('map') });
 
   initTrail({
     onBack: () => showScreen('home'),
@@ -90,12 +92,13 @@ function init(): void {
 
   el('home-camera-btn').addEventListener('click', () => showScreen('camera'));
   el('home-gallery-btn').addEventListener('click', () => showScreen('gallery'));
-  el('home-map-btn').addEventListener('click', () => showScreen('map'));
+  el('home-map-btn').addEventListener('click', () => showScreen('map-picker'));
   el('home-theme-btn').addEventListener('click', () => showScreen('theme'));
   el('home-theme-shortcut').addEventListener('click', () => showScreen('theme'));
   el('home-trail-btn').addEventListener('click', () => showScreen('trail-setup'));
   el('gallery-back-btn').addEventListener('click', () => showScreen('home'));
-  el('map-back-btn').addEventListener('click', () => showScreen('home'));
+  el('map-picker-back-btn').addEventListener('click', () => showScreen('home'));
+  el('map-back-btn').addEventListener('click', () => showScreen('map-picker'));
   el('theme-back-btn').addEventListener('click', () => showScreen('home'));
 
   el('trail-start-btn').addEventListener('click', () => showScreen('trail-active'));
