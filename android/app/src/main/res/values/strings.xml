@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">GeoCamera</string>
+    <string name="title_activity_main">GeoCamera</string>
+    <string name="package_name">com.geocamera.app</string>
+    <string name="custom_url_scheme">com.geocamera.app</string>
+</resources>

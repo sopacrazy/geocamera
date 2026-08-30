@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>GeoCamera</title>
+  <meta name="description" content="Câmera com HUD de geolocalização em tempo real, bússola e galeria.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/styles.css">
+</head>
+<body>
+
+  <!-- ============ HOME ============ -->
+  <div id="screen-home" class="static-screen">
+    <div class="home-inner">
+      <div class="home-topbar">
+        <div class="home-brand"><span class="home-brand-dot"></span>GeoCamera</div>
+        <button type="button" class="icon-btn" id="home-theme-shortcut" aria-label="Temas">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.5-.7 1.5-1.5 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.8.7-1.5 1.5-1.5H16c3.3 0 6-2.7 6-6 0-4.4-4.5-8-10-8Z"/></svg>
+        </button>
+      </div>
+
+      <div class="home-greeting">
+        <h1>Olá 👋</h1>
+        <p id="home-date-text">--</p>
+      </div>
+
+      <div class="home-menu">
+        <button type="button" class="menu-card primary" id="home-camera-btn">
+          <span class="menu-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8a2 2 0 0 1 2-2h2l2-3h8l2 3h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8Z"/><circle cx="12" cy="13" r="4"/></svg>
+          </span>
+          <span class="menu-body">
+            <span class="menu-title">Abrir câmera</span>
+            <span class="menu-sub">Captura com GPS e bússola ao vivo</span>
+          </span>
+          <span class="menu-cta">Abrir</span>
+        </button>
+
+        <button type="button" class="menu-card" id="home-gallery-btn">
+          <span class="menu-photo" id="home-gallery-photo" hidden></span>
+          <span class="menu-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+          </span>
+          <span class="menu-badge" id="home-gallery-badge" hidden>0 fotos</span>
+          <span class="menu-body">
+            <span class="menu-title">Galeria</span>
+            <span class="menu-sub">Fotos capturadas neste dispositivo</span>
+          </span>
+          <span class="menu-cta">Ver galeria</span>
+        </button>
+
+        <button type="button" class="menu-card" id="home-map-btn">
+          <span class="menu-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+          </span>
+          <span class="menu-badge" id="home-map-badge" hidden>0 pontos</span>
+          <span class="menu-body">
+            <span class="menu-title">Mapa</span>
+            <span class="menu-sub">Rota conectando seus pontos capturados</span>
+          </span>
+          <span class="menu-cta">Ver mapa</span>
+        </button>
+
+        <button type="button" class="menu-card" id="home-theme-btn">
+          <span class="menu-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.5-.7 1.5-1.5 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.8.7-1.5 1.5-1.5H16c3.3 0 6-2.7 6-6 0-4.4-4.5-8-10-8Z"/></svg>
+          </span>
+          <span class="menu-body">
+            <span class="menu-title">Temas</span>
+            <span class="menu-sub">Cor da bússola e do HUD</span>
+          </span>
+          <span class="menu-cta">Personalizar</span>
+        </button>
+
+        <button type="button" class="menu-card wide" id="home-trail-btn">
+          <span class="menu-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 20l-5.447-2.724A1 1 0 0 1 3 16.382V5.618a1 1 0 0 1 1.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0 0 21 18.382V7.618a1 1 0 0 0-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+          </span>
+          <span class="menu-body">
+            <span class="menu-title">Trilha</span>
+            <span class="menu-sub">Rastreamento GPS puro, sem câmera — anote a rota enquanto anda</span>
+          </span>
+          <span class="menu-cta">Iniciar trilha</span>
+        </button>
+      </div>
+
+      <div class="home-footer">GeoCamera · v1.0</div>
+    </div>
+  </div>
+
+  <!-- ============ GALLERY ============ -->
+  <div id="screen-gallery" class="static-screen hidden">
+    <div class="screen-header">
+      <button type="button" class="back-btn" id="gallery-back-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+      </button>
+      <h1>Galeria</h1>
+      <span class="count-chip"><span id="gallery-count">0</span> fotos</span>
+    </div>
+
+    <div id="gallery-grid" hidden></div>
+    <div id="gallery-empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+      <p>Nenhuma foto capturada ainda.<br>Abra a câmera e faça sua primeira captura.</p>
+    </div>
+
+    <div id="lightbox" class="hidden">
+      <button type="button" class="back-btn" id="lightbox-close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+      <img id="lightbox-img" src="" alt="Foto capturada">
+      <div id="lightbox-meta">
+        <span id="lightbox-datetime">--</span>
+        <span id="lightbox-coords">--</span>
+        <span id="lightbox-address">--</span>
+      </div>
+      <div id="lightbox-actions">
+        <button type="button" class="btn-pill btn-outline" id="lightbox-delete">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+          Excluir
+        </button>
+        <button type="button" class="btn-pill" id="lightbox-download">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Baixar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MAP ============ -->
+  <div id="screen-map" class="hidden">
+    <div id="map-container" hidden></div>
+    <div id="map-empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+      <p>Nenhum ponto no mapa ainda.<br>Capture fotos na câmera para ver a rota aqui.</p>
+    </div>
+    <div class="map-header">
+      <button type="button" class="back-btn" id="map-back-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+      </button>
+      <h1>Mapa</h1>
+      <button type="button" class="count-chip" id="map-count-btn" aria-label="Ver resumo de distâncias">
+        <span id="map-count-value">0 pontos</span>
+      </button>
+      <button type="button" class="icon-btn" id="map-offline-btn" aria-label="Baixar esta área para uso offline">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><line x1="12" y1="3" x2="12" y2="13"/><path d="m8 9 4 4 4-4"/></svg>
+      </button>
+      <button type="button" class="icon-btn" id="map-export-btn" aria-label="Salvar imagem do mapa">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </button>
+    </div>
+
+    <div id="map-offline-status" class="hidden"></div>
+
+    <div id="map-summary" class="hidden">
+      <div class="map-summary-header">
+        <span>Resumo por área</span>
+        <button type="button" id="map-summary-close" aria-label="Fechar resumo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <div id="map-summary-list"></div>
+    </div>
+  </div>
+
+  <!-- ============ THEMES ============ -->
+  <div id="screen-theme" class="static-screen hidden">
+    <div class="screen-header">
+      <button type="button" class="back-btn" id="theme-back-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+      </button>
+      <h1>Temas</h1>
+    </div>
+    <div id="theme-list"></div>
+  </div>
+
+  <!-- ============ TRAIL SETUP ============ -->
+  <div id="screen-trail-setup" class="static-screen hidden">
+    <div class="screen-header">
+      <button type="button" class="back-btn" id="trail-setup-back-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+      </button>
+      <h1>Nova trilha</h1>
+    </div>
+
+    <div class="trail-setup-body">
+      <div class="trail-field">
+        <label for="trail-name-input">Nome da trilha</label>
+        <input type="text" id="trail-name-input" placeholder="Trilha --/--/---- --:--">
+      </div>
+
+      <div class="trail-field">
+        <label>Intervalo de distância</label>
+        <p id="trail-interval-label" class="trail-interval-caption">Registrar 1 ponto a cada 10 m</p>
+        <div class="trail-interval-row">
+          <input type="range" id="trail-interval-slider" min="5" max="500" step="5" value="10">
+          <input type="number" id="trail-interval-input" min="5" max="500" step="5" value="10">
+        </div>
+      </div>
+
+      <button type="button" id="trail-start-btn" class="btn-pill">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Iniciar trilha
+      </button>
+    </div>
+  </div>
+
+  <!-- ============ TRAIL ACTIVE ============ -->
+  <div id="screen-trail-active" class="hidden">
+    <div class="screen-header trail-active-header">
+      <button type="button" class="back-btn" id="trail-active-back-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+      </button>
+      <h1 id="trail-name-display">Trilha</h1>
+    </div>
+
+    <div id="trail-signal-warning" class="hidden">⚠ Sinal de GPS fraco</div>
+
+    <div class="trail-status-row">
+      <span id="trail-status-dot" class="trail-dot"></span>
+      <span id="trail-status-text">RASTREANDO...</span>
+      <span id="trail-timer">00:00:00</span>
+    </div>
+
+    <div class="trail-stats-grid">
+      <div class="trail-stat">
+        <span class="trail-stat-label">Pontos</span>
+        <span class="trail-stat-value" id="trail-point-count">0 pontos</span>
+      </div>
+      <div class="trail-stat">
+        <span class="trail-stat-label">Distância</span>
+        <span class="trail-stat-value" id="trail-distance">0 m</span>
+      </div>
+      <div class="trail-stat">
+        <span class="trail-stat-label">Precisão GPS</span>
+        <span class="trail-stat-value" id="trail-accuracy">-- m</span>
+      </div>
+      <div class="trail-stat">
+        <span class="trail-stat-label">Altitude</span>
+        <span class="trail-stat-value" id="trail-altitude">--</span>
+      </div>
+      <div class="trail-stat wide">
+        <span class="trail-stat-label">Coordenadas</span>
+        <span class="trail-stat-value" id="trail-coords">--.------, --.------</span>
+      </div>
+    </div>
+
+    <div id="trail-toast" class="hidden"></div>
+
+    <div class="trail-active-actions">
+      <button type="button" id="trail-pause-btn" class="btn-pill btn-outline">Pausar</button>
+      <button type="button" id="trail-finalize-btn" class="btn-pill">Finalizar trilha</button>
+    </div>
+  </div>
+
+  <div id="trail-finalize-modal" class="modal" style="display: none;">
+    <div class="modal-content trail-modal">
+      <div id="trail-finalize-choice">
+        <h2>Finalizar trilha</h2>
+        <p>Como você quer salvar essa trilha?</p>
+        <div class="trail-choice-row">
+          <button type="button" class="trail-choice-card" data-choice="open">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="19" r="2"/><circle cx="19" cy="5" r="2"/><path d="M6.5 17.5 17.5 6.5"/></svg>
+            <span class="trail-choice-title">Rota / Distância</span>
+            <span class="trail-choice-desc">Mantém como linha aberta. Ideal pra medir distância ou registrar um caminho.</span>
+          </button>
+          <button type="button" class="trail-choice-card" data-choice="closed">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 22 8.5 18.5 20 5.5 20 2 8.5" fill="currentColor" fill-opacity="0.15"/></svg>
+            <span class="trail-choice-title">Área / Perímetro</span>
+            <span class="trail-choice-desc">Fecha o polígono ligando o último ponto ao primeiro. Ideal pra medir terrenos.</span>
+          </button>
+        </div>
+        <div class="btn-row">
+          <button type="button" id="trail-finalize-cancel-btn" class="btn-pill btn-outline">Cancelar</button>
+          <button type="button" id="trail-finalize-save-btn" class="btn-pill" disabled>Salvar</button>
+        </div>
+      </div>
+      <div id="trail-finalize-summary" class="hidden">
+        <div class="modal-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <h2>Trilha salva</h2>
+        <div id="trail-summary-stats"></div>
+        <button type="button" id="trail-finalize-done-btn" class="btn-pill">Concluir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ CAMERA ============ -->
+  <div id="screen-camera" class="hidden">
+    <video id="video-feed" autoplay playsinline muted></video>
+    <div id="vignette"></div>
+
+    <button type="button" class="back-btn" id="camera-back-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+    </button>
+
+    <div id="top-bar" style="display: none;">
+      <div id="rec-indicator" class="hidden">
+        <span class="rec-dot"></span>REC <span id="rec-timer">00:00:00</span>
+      </div>
+      <div id="status-right">
+        <div class="chip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1"/></svg>
+          <span id="acc-chip">-- m</span>
+        </div>
+        <div class="chip" id="clock-chip"><span id="clock-text">--:--:--</span></div>
+      </div>
+    </div>
+
+    <div id="plot-indicator" class="hidden">
+      <span id="plot-indicator-text">Área 1 · 0 pontos</span>
+      <button type="button" id="plot-finalize-btn">Finalizar área</button>
+    </div>
+
+    <div id="hud-overlay" style="display: none;">
+      <div id="data-container">
+        <div class="data-row amber">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span id="coords">LAT --.------ · LON --.------</span>
+        </div>
+        <div class="data-row">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
+          <span class="label">ALT</span><span id="altitude">-- m</span>
+        </div>
+        <div class="data-row" id="address-row">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10 15 15 0 0 1 4-10Z"/></svg>
+          <span id="address">Buscando localização...</span>
+        </div>
+        <div class="data-row amber" id="speed-row" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          <span id="speed-value">0 km/h</span>
+        </div>
+        <div class="data-row" id="distance-row" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 20l-5.447-2.724A1 1 0 0 1 3 16.382V5.618a1 1 0 0 1 1.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0 0 21 18.382V7.618a1 1 0 0 0-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+          <span id="distance-value">0 m · 0 pontos</span>
+        </div>
+      </div>
+      <div id="compass-block">
+        <div id="compass-container">
+          <svg id="compass-svg" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="45" stroke="var(--accent)" stroke-width="1.5" fill="none" opacity="0.6" />
+            <line x1="50" y1="6" x2="50" y2="17" stroke="var(--accent)" stroke-width="2" />
+            <line x1="94" y1="50" x2="83" y2="50" stroke="var(--accent)" stroke-width="2" />
+            <line x1="50" y1="94" x2="50" y2="83" stroke="var(--accent)" stroke-width="2" />
+            <line x1="6" y1="50" x2="17" y2="50" stroke="var(--accent)" stroke-width="2" />
+            <line x1="72" y1="11.9" x2="69" y2="17.1" stroke="var(--accent)" stroke-width="1" opacity="0.4" />
+            <line x1="88.1" y1="28" x2="82.9" y2="31" stroke="var(--accent)" stroke-width="1" opacity="0.4" />
+            <line x1="88.1" y1="72" x2="82.9" y2="69" stroke="var(--accent)" stroke-width="1" opacity="0.4" />
+            <line x1="72" y1="88.1" x2="69" y2="82.9" stroke="var(--accent)" stroke-width="1" opacity="0.4" />
+            <line x1="28" y1="88.1" x2="31" y2="82.9" stroke="var(--accent)" stroke-width="1" opacity="0.4" />
+            <line x1="11.9" y1="72" x2="17.1" y2="69" stroke="var(--accent)" stroke-width="1" opacity="0.4" />
+            <line x1="11.9" y1="28" x2="17.1" y2="31" stroke="var(--accent)" stroke-width="1" opacity="0.4" />
+            <line x1="28" y1="11.9" x2="31" y2="17.1" stroke="var(--accent)" stroke-width="1" opacity="0.4" />
+            <text x="50" y="15" fill="var(--danger)" font-size="11" font-weight="700" text-anchor="middle">N</text>
+            <text x="50" y="93" fill="var(--accent)" font-size="11" text-anchor="middle">S</text>
+            <text x="86" y="54" fill="var(--accent)" font-size="11" text-anchor="middle">L</text>
+            <text x="14" y="54" fill="var(--accent)" font-size="11" text-anchor="middle">O</text>
+            <g id="compass-needle">
+              <polygon points="47,50 50,16 53,50" fill="var(--danger)" />
+              <polygon points="47,50 50,84 53,50" fill="var(--accent)" />
+              <circle cx="50" cy="50" r="3.5" fill="#ffffff" stroke="var(--accent)" stroke-width="1.5" />
+            </g>
+          </svg>
+          <div id="compass-hint">Mova o celular<br>em forma de 8</div>
+        </div>
+        <div id="heading-readout"><span id="heading-value">--°</span><span id="heading-cardinal">--</span></div>
+        <button type="button" id="compass-help-btn" aria-label="Como calibrar a bússola">?</button>
+      </div>
+    </div>
+
+    <div id="mode-toggle" class="hidden">
+      <button type="button" class="mode-btn active" data-mode="photo">Foto</button>
+      <button type="button" class="mode-btn" data-mode="video">Vídeo</button>
+    </div>
+
+    <div id="capture-shell" class="hidden">
+      <button type="button" id="pause-btn" class="hidden" aria-label="Pausar gravação">
+        <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+      </button>
+      <button id="capture-btn"><span id="capture-btn-stop-icon" class="hidden"></span></button>
+    </div>
+
+    <div id="permission-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8a2 2 0 0 1 2-2h2l2-3h8l2 3h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8Z"/><circle cx="12" cy="13" r="4"/></svg>
+        </div>
+        <h2>GeoCamera</h2>
+        <p>Precisamos de acesso à câmera, ao GPS e à bússola para montar o HUD em tempo real.</p>
+        <button id="start-btn" class="btn-pill">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Começar
+        </button>
+      </div>
+    </div>
+
+    <div id="plot-finalized-modal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <h2 id="plot-finalized-title">Área finalizada</h2>
+        <p id="plot-finalized-summary">--</p>
+        <button type="button" id="plot-finalized-ok-btn" class="btn-pill">Concluir e voltar ao início</button>
+      </div>
+    </div>
+
+    <div id="tutorial-modal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <svg class="tutorial-anim" viewBox="0 0 120 100" width="150" height="125">
+          <path d="M 10,50 C 10,20 50,20 60,50 C 70,80 110,80 110,50 C 110,20 70,20 60,50 C 50,80 10,80 10,50 Z"
+            fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="3" stroke-linecap="round" stroke-dasharray="1 9" />
+          <circle r="7" fill="var(--accent)">
+            <animateMotion dur="2.4s" repeatCount="indefinite"
+              path="M 10,50 C 10,20 50,20 60,50 C 70,80 110,80 110,50 C 110,20 70,20 60,50 C 50,80 10,80 10,50 Z" />
+          </circle>
+        </svg>
+        <h2>Calibre a bússola</h2>
+        <p id="tutorial-status" class="tutorial-status"><span class="status-dot"></span>Calibrando…</p>
+        <p>Segure o celular no ar e desenhe um "8" algumas vezes, girando o pulso. Isso ajuda o sensor a encontrar o norte magnético.</p>
+        <button type="button" id="tutorial-dismiss-btn" class="btn-pill">Entendi</button>
+      </div>
+    </div>
+
+    <div id="error-modal" class="modal" style="display: none;">
+      <div class="modal-content danger">
+        <div class="modal-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <h2>Algo deu errado</h2>
+        <p id="error-message">Permissões negadas. Libere o acesso nas configurações do dispositivo e reinicie.</p>
+        <button onclick="location.reload()" class="btn-pill btn-danger">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+          Reiniciar
+        </button>
+      </div>
+    </div>
+
+    <div id="preview-modal" class="modal" style="display: none; padding: 0;">
+      <div class="preview-container">
+        <img id="preview-img" src="" alt="Captura">
+        <div id="preview-caption">
+          <span id="preview-datetime">--</span>
+          <span id="preview-coords">--</span>
+        </div>
+        <div class="preview-actions">
+          <button id="retake-btn" class="btn-pill btn-outline">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+            Descartar
+          </button>
+          <button id="download-btn" class="btn-pill btn-outline">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Baixar
+          </button>
+          <button id="keep-btn" class="btn-pill">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Manter
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="video-preview-modal" class="modal" style="display: none; padding: 0;">
+      <div class="preview-container">
+        <video id="video-preview-player" playsinline controls></video>
+        <div id="video-stats-summary">
+          <div class="vstat"><span class="vstat-label">Duração</span><span id="vstat-duration">--</span></div>
+          <div class="vstat"><span class="vstat-label">Distância</span><span id="vstat-distance">--</span></div>
+          <div class="vstat"><span class="vstat-label">Vel. média</span><span id="vstat-avg-speed">--</span></div>
+          <div class="vstat"><span class="vstat-label">Vel. máx.</span><span id="vstat-max-speed">--</span></div>
+        </div>
+        <div class="preview-actions">
+          <button type="button" id="video-discard-btn" class="btn-pill btn-outline">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+            Descartar
+          </button>
+          <button type="button" id="video-download-btn" class="btn-pill btn-outline">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Baixar
+          </button>
+          <button type="button" id="video-save-btn" class="btn-pill">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Salvar trilha
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="camera-toast" class="hidden">Aguardando sinal de GPS…</div>
+
+    <canvas id="capture-canvas" style="display: none;"></canvas>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

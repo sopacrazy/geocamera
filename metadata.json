@@ -1,0 +1,8 @@
+{
+  "name": "GeoCamera",
+  "description": "Câmera com HUD tático de geolocalização em tempo real e captura de fotos.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
