@@ -175,13 +175,28 @@ function ensureMap(): L.Map {
     errorTileUrl: BLANK_TILE,
     attribution: '&copy; Esri, Maxar, Earthstar Geographics',
   });
+  // Google's public tile endpoint — imagery is often more current than Esri's, but it's not
+  // the official Maps JavaScript API, so it must stay online-only: no caching, no offline
+  // download (a plain L.tileLayer, not the offline-capable tileLayerOffline used above).
+  const google = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+    maxZoom: 20,
+    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+    errorTileUrl: BLANK_TILE,
+    attribution: '&copy; Google',
+  });
 
   mapInstance = L.map('map-container', { zoomControl: false, attributionControl: true, layers: [streets] });
   activeBaseLayer = streets;
   L.control.zoom({ position: 'bottomright' }).addTo(mapInstance);
-  L.control.layers({ 'Ruas': streets, 'Satélite': satellite }, undefined, { position: 'bottomright' }).addTo(mapInstance);
+  L.control.layers({ 'Ruas': streets, 'Satélite': satellite, 'Google (só online)': google }, undefined, { position: 'bottomright' }).addTo(mapInstance);
 
   mapInstance.on('baselayerchange', (e) => {
+    if (e.layer === google) {
+      // Not offline-capable — downloadCurrentArea() checks for this null and blocks with a toast.
+      activeBaseLayer = null;
+      offlineStatus('Mapa do Google é só online — não pode ser baixado para uso offline.', 3500);
+      return;
+    }
     activeBaseLayer = e.layer as TileLayerOffline;
     saveTilesControl?.setLayer(activeBaseLayer);
   });
@@ -707,8 +722,12 @@ function estimateTileCount(layer: TileLayerOffline, map: L.Map, maxZoom: number)
 }
 
 function downloadCurrentArea(): void {
-  if (!mapInstance || !activeBaseLayer || !saveTilesControl) return;
+  if (!mapInstance || !saveTilesControl) return;
   if (offlineDownloadInProgress) return;
+  if (!activeBaseLayer) {
+    offlineStatus('Mapa do Google é só online — troque para "Ruas" ou "Satélite" antes de baixar.', 4000);
+    return;
+  }
 
   if (mapInstance.getZoom() < 12) {
     offlineStatus('Dê mais zoom antes de baixar — escolha a região específica onde vai trabalhar (uma fazenda, um bairro).', 4000);
