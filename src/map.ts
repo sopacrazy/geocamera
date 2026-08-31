@@ -3,7 +3,7 @@ import 'leaflet/dist/leaflet.css';
 import html2canvas from 'html2canvas';
 import { tileLayerOffline, savetiles, type TileLayerOffline, type ControlSaveTiles } from 'leaflet.offline';
 import { el } from './dom';
-import { getAllPhotos, getAllTracks, getAllPlots, type PhotoRecord, type TrackRecord, type PlotRecord } from './db';
+import { getAllPhotos, getAllTracks, getAllPlots, deletePlot, deleteTrack, type PhotoRecord, type TrackRecord, type PlotRecord } from './db';
 import { saveFile } from './save-file';
 
 const TRACK_COLORS = ['#4A9EFF', '#FF9F4A', '#B26AFF', '#FF4D6A', '#4AD9C0'];
@@ -30,8 +30,12 @@ let offlineDownloadInProgress = false;
 const hiddenPlotIds = new Set<number>();
 const hiddenTrackIds = new Set<number>();
 
+let pendingDelete: { kind: 'plot' | 'track'; id: number; name: string } | null = null;
+
 const EYE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
 const EYE_OFF_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>';
+const TRASH_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>';
+const DELETE_BUTTON_HTML = `<button type="button" class="picker-item-delete" aria-label="Excluir">${TRASH_ICON}</button>`;
 
 interface RouteSegment {
   label: string;
@@ -271,18 +275,21 @@ export async function renderMapPicker(): Promise<void> {
     if (group.plot.id === undefined) return;
     const color = PLOT_COLORS[groupIdx % PLOT_COLORS.length];
     const statusLabel = group.plot.finalizedAt ? 'Finalizada' : 'Atual';
-    const item = document.createElement('button');
-    item.type = 'button';
+    const item = document.createElement('div');
     item.className = 'picker-item';
+    item.setAttribute('role', 'button');
+    item.tabIndex = 0;
     item.dataset.kind = 'plot';
     item.dataset.id = String(group.plot.id);
+    item.dataset.name = group.plot.name;
     item.innerHTML = `
       <span class="picker-item-swatch" style="background:${color}"></span>
       <span class="picker-item-body">
         <span class="picker-item-name">${group.plot.name}</span>
         <span class="picker-item-sub">${group.photos.length === 1 ? '1 foto' : `${group.photos.length} fotos`}</span>
       </span>
-      <span class="picker-item-type">Área<br>${statusLabel}</span>`;
+      <span class="picker-item-type">Área<br>${statusLabel}</span>
+      ${DELETE_BUTTON_HTML}`;
     list.appendChild(item);
   });
 
@@ -290,18 +297,21 @@ export async function renderMapPicker(): Promise<void> {
     if (track.id === undefined || track.points.length === 0) return;
     const color = track.color || TRACK_COLORS[trackIdx % TRACK_COLORS.length];
     const label = track.name || (track.kind === 'trail' ? 'Trilha' : 'Vídeo');
-    const item = document.createElement('button');
-    item.type = 'button';
+    const item = document.createElement('div');
     item.className = 'picker-item';
+    item.setAttribute('role', 'button');
+    item.tabIndex = 0;
     item.dataset.kind = 'track';
     item.dataset.id = String(track.id);
+    item.dataset.name = label;
     item.innerHTML = `
       <span class="picker-item-swatch" style="background:${color}"></span>
       <span class="picker-item-body">
         <span class="picker-item-name">${label}</span>
         <span class="picker-item-sub">${track.points.length === 1 ? '1 ponto' : `${track.points.length} pontos`} · ${formatDateTime(track.datetime)}</span>
       </span>
-      <span class="picker-item-type">${track.closed ? 'Área' : 'Trilha'}</span>`;
+      <span class="picker-item-type">${track.closed ? 'Área' : 'Trilha'}</span>
+      ${DELETE_BUTTON_HTML}`;
     list.appendChild(item);
   });
 }
@@ -745,9 +755,23 @@ function downloadCurrentArea(): void {
   (saveTilesControl as any)._saveTiles();
 }
 
-export function initMap(callbacks?: { onSelectItem?: () => void }): void {
+export function initMap(callbacks?: { onSelectItem?: () => void; onDataChange?: () => void }): void {
   el('map-picker-list').addEventListener('click', async (event) => {
     const target = event.target as HTMLElement;
+
+    const deleteBtn = target.closest('.picker-item-delete');
+    if (deleteBtn) {
+      const item = deleteBtn.closest<HTMLElement>('.picker-item');
+      if (!item) return;
+      const kind = item.dataset.kind === 'track' ? 'track' : 'plot';
+      const id = Number(item.dataset.id);
+      if (Number.isNaN(id)) return;
+      pendingDelete = { kind, id, name: item.dataset.name || (kind === 'track' ? 'esta trilha' : 'esta área') };
+      el('delete-confirm-message').innerText = `Excluir "${pendingDelete.name}"? ${kind === 'plot' ? 'As fotos dessa área também serão apagadas.' : 'Os pontos dessa trilha também serão apagados.'} Essa ação não pode ser desfeita.`;
+      el('delete-confirm-modal').style.display = 'flex';
+      return;
+    }
+
     if (target.closest('.picker-all-btn')) {
       showAllMapItems();
       callbacks?.onSelectItem?.();
@@ -760,6 +784,35 @@ export function initMap(callbacks?: { onSelectItem?: () => void }): void {
     if (Number.isNaN(id)) return;
     await selectSingleMapItem(kind, id);
     callbacks?.onSelectItem?.();
+  });
+
+  el('delete-confirm-cancel-btn').addEventListener('click', () => {
+    pendingDelete = null;
+    el('delete-confirm-modal').style.display = 'none';
+  });
+
+  el('delete-confirm-ok-btn').addEventListener('click', async () => {
+    if (!pendingDelete) return;
+    const btn = el<HTMLButtonElement>('delete-confirm-ok-btn');
+    if (btn.disabled) return;
+    btn.disabled = true;
+    try {
+      if (pendingDelete.kind === 'plot') {
+        await deletePlot(pendingDelete.id);
+        hiddenPlotIds.delete(pendingDelete.id);
+      } else {
+        await deleteTrack(pendingDelete.id);
+        hiddenTrackIds.delete(pendingDelete.id);
+      }
+      pendingDelete = null;
+      btn.disabled = false;
+      el('delete-confirm-modal').style.display = 'none';
+      callbacks?.onDataChange?.();
+      await renderMapPicker();
+    } catch (err) {
+      btn.disabled = false;
+      el('delete-confirm-message').innerText = 'Não foi possível excluir: ' + (err instanceof Error ? err.message : String(err));
+    }
   });
 
   el('map-count-btn').addEventListener('click', () => {

@@ -198,6 +198,12 @@ body, html {
   font-size: 10.5px; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase;
   color: var(--ink-faint); flex-shrink: 0; text-align: right;
 }
+.picker-item-delete {
+  background: none; border: none; color: var(--ink-faint); cursor: pointer;
+  padding: 6px; margin-left: 2px; display: flex; align-items: center; flex-shrink: 0;
+}
+.picker-item-delete svg { width: 17px; height: 17px; display: block; }
+.picker-item-delete:active { color: var(--danger); }
 .picker-empty {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   text-align: center; gap: 14px; color: var(--ink-faint);

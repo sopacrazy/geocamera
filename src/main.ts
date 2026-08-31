@@ -83,7 +83,7 @@ function init(): void {
   });
 
   initGallery({ onPhotoChange: updateHomeBadge });
-  initMap({ onSelectItem: () => showScreen('map') });
+  initMap({ onSelectItem: () => showScreen('map'), onDataChange: updateHomeBadge });
 
   initTrail({
     onBack: () => showScreen('home'),

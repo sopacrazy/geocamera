@@ -193,6 +193,24 @@ export async function updatePlot(record: PlotRecord): Promise<void> {
   });
 }
 
+export async function deletePlot(id: number): Promise<void> {
+  const db = await openDB();
+  const photos = await getAllPhotos();
+  const photoIdsToDelete = photos
+    .filter((p) => p.plotId === id)
+    .map((p) => p.id)
+    .filter((photoId): photoId is number => photoId !== undefined);
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([PLOT_STORE, PHOTO_STORE], 'readwrite');
+    tx.objectStore(PLOT_STORE).delete(id);
+    const photoStore = tx.objectStore(PHOTO_STORE);
+    photoIdsToDelete.forEach((photoId) => photoStore.delete(photoId));
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 export async function getOrCreateActivePlot(): Promise<PlotRecord> {
   const plots = await getAllPlots();
   const active = plots.find((p) => p.finalizedAt === null);
