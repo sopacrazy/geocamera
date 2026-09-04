@@ -222,14 +222,7 @@
         <input type="text" id="trail-name-input" placeholder="Trilha --/--/---- --:--">
       </div>
 
-      <div class="trail-field">
-        <label>Intervalo de distância</label>
-        <p id="trail-interval-label" class="trail-interval-caption">Registrar 1 ponto a cada 10 m</p>
-        <div class="trail-interval-row">
-          <input type="range" id="trail-interval-slider" min="5" max="500" step="5" value="10">
-          <input type="number" id="trail-interval-input" min="5" max="500" step="5" value="10">
-        </div>
-      </div>
+      <p class="trail-setup-hint">O app grava o caminho real por GPS enquanto você anda. Durante a trilha, toque em "Marcar ponto" sempre que quiser registrar um marco.</p>
 
       <button type="button" id="trail-start-btn" class="btn-pill">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -257,11 +250,11 @@
 
     <div class="trail-stats-grid">
       <div class="trail-stat">
-        <span class="trail-stat-label">Pontos</span>
+        <span class="trail-stat-label">Pontos marcados</span>
         <span class="trail-stat-value" id="trail-point-count">0 pontos</span>
       </div>
       <div class="trail-stat">
-        <span class="trail-stat-label">Distância</span>
+        <span class="trail-stat-label">Distância percorrida</span>
         <span class="trail-stat-value" id="trail-distance">0 m</span>
       </div>
       <div class="trail-stat">
@@ -279,6 +272,13 @@
     </div>
 
     <div id="trail-toast" class="hidden"></div>
+
+    <div class="trail-mark-row">
+      <button type="button" id="trail-mark-btn" class="trail-mark-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+        <span>Marcar ponto</span>
+      </button>
+    </div>
 
     <div class="trail-active-actions">
       <button type="button" id="trail-pause-btn" class="btn-pill btn-outline">Pausar</button>

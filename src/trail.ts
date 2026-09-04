@@ -3,9 +3,9 @@ import { addTrack, type TrackPoint } from './db';
 
 const TRAIL_COLORS = ['#4A9EFF', '#FF9F4A', '#B26AFF', '#FF4D6A', '#4AD9C0', '#D4A017'];
 const MIN_ACCURACY_METERS = 30;
-const MIN_INTERVAL_M = 5;
-const MAX_INTERVAL_M = 500;
-const DEFAULT_INTERVAL_M = 10;
+// The continuous path only records a new sample once you've moved at least this far —
+// otherwise standing still would pile up hundreds of near-identical points.
+const PATH_MIN_INTERVAL_METERS = 3;
 
 type FinalizeChoice = 'open' | 'closed';
 
@@ -19,12 +19,15 @@ let isTracking = false;
 let isPaused = false;
 let hasGpsFix = false;
 
-let intervalMeters = DEFAULT_INTERVAL_M;
 let trailName = '';
 let trailColor = TRAIL_COLORS[0];
 
+// The real walked route, sampled automatically and continuously — draws the actual path
+// on the map (curves, not straight lines) and is what distance/area are computed from.
+let path: TrackPoint[] = [];
+// Manually marked waypoints — the user taps "Marcar ponto" to drop one; shown as numbered
+// markers on the map, independent of the automatic path sampling above.
 let points: TrackPoint[] = [];
-let accumulatedSinceLastPoint = 0;
 let totalDistance = 0;
 let maxSpeedKmh = 0;
 
@@ -109,23 +112,10 @@ async function geocodeOnce(lat: number, lon: number): Promise<string> {
 
 // ---------- Setup screen ----------
 
-function updateIntervalLabel(): void {
-  el('trail-interval-label').innerText = `Registrar 1 ponto a cada ${intervalMeters} m`;
-}
-
 function showSetupScreen(): void {
-  intervalMeters = DEFAULT_INTERVAL_M;
   trailName = '';
-  el<HTMLInputElement>('trail-interval-slider').value = String(intervalMeters);
-  el<HTMLInputElement>('trail-interval-input').value = String(intervalMeters);
   el<HTMLInputElement>('trail-name-input').value = '';
   el<HTMLInputElement>('trail-name-input').placeholder = defaultTrailName();
-  updateIntervalLabel();
-}
-
-function clampInterval(value: number): number {
-  if (Number.isNaN(value)) return DEFAULT_INTERVAL_M;
-  return Math.min(MAX_INTERVAL_M, Math.max(MIN_INTERVAL_M, Math.round(value / 5) * 5));
 }
 
 // ---------- Active tracking screen ----------
@@ -154,20 +144,14 @@ function updateLiveStats(): void {
   accEl.className = `trail-stat-value acc-${hasGpsFix ? accuracyColorClass(currentAcc) : 'bad'}`;
 }
 
-function registerPoint(): void {
-  const point: TrackPoint = {
-    timestamp: new Date().toISOString(),
-    lat: currentLat,
-    lon: currentLon,
-    alt: currentAlt,
-    acc: currentAcc,
-    speed: null,
-  };
+function addPathPoint(lat: number, lon: number, alt: number | null, acc: number): void {
+  const timestamp = new Date().toISOString();
+  const point: TrackPoint = { timestamp, lat, lon, alt, acc, speed: null };
 
-  const last = points[points.length - 1];
+  const last = path[path.length - 1];
   if (last) {
-    const deltaMeters = getDistanceMeters(last.lat, last.lon, point.lat, point.lon);
-    const deltaSeconds = (new Date(point.timestamp).getTime() - new Date(last.timestamp).getTime()) / 1000;
+    const deltaMeters = getDistanceMeters(last.lat, last.lon, lat, lon);
+    const deltaSeconds = (new Date(timestamp).getTime() - new Date(last.timestamp).getTime()) / 1000;
     totalDistance += deltaMeters;
     if (deltaSeconds > 0) {
       const speedKmh = (deltaMeters / 1000) / (deltaSeconds / 3600);
@@ -176,8 +160,30 @@ function registerPoint(): void {
     }
   }
 
-  points.push(point);
+  path.push(point);
+}
+
+function markPoint(): void {
+  if (!isTracking || isPaused) return;
+  if (!hasGpsFix) {
+    showTrailToast('Aguardando sinal de GPS antes de marcar o ponto.');
+    return;
+  }
+  if (currentAcc > MIN_ACCURACY_METERS) {
+    showTrailToast(`Precisão do GPS muito baixa agora (${currentAcc.toFixed(0)} m). Aguarde melhorar antes de marcar.`);
+    return;
+  }
+
+  points.push({
+    timestamp: new Date().toISOString(),
+    lat: currentLat,
+    lon: currentLon,
+    alt: currentAlt,
+    acc: currentAcc,
+    speed: null,
+  });
   updateLiveStats();
+  showTrailToast(`Ponto ${points.length} marcado.`);
 }
 
 function handlePosition(pos: GeolocationPosition): void {
@@ -199,19 +205,9 @@ function handlePosition(pos: GeolocationPosition): void {
     return;
   }
 
-  if (points.length === 0) {
-    registerPoint();
-    updateLiveStats();
-    return;
-  }
-
-  const last = points[points.length - 1];
-  const deltaFromLast = getDistanceMeters(last.lat, last.lon, currentLat, currentLon);
-  accumulatedSinceLastPoint = deltaFromLast;
-
-  if (accumulatedSinceLastPoint >= intervalMeters) {
-    registerPoint();
-    accumulatedSinceLastPoint = 0;
+  const last = path[path.length - 1];
+  if (!last || getDistanceMeters(last.lat, last.lon, currentLat, currentLon) >= PATH_MIN_INTERVAL_METERS) {
+    addPathPoint(currentLat, currentLon, currentAlt, currentAcc);
   }
 
   updateLiveStats();
@@ -227,8 +223,8 @@ function startTracking(): void {
   trailColor = TRAIL_COLORS[trailColorIndex % TRAIL_COLORS.length];
   trailColorIndex += 1;
 
+  path = [];
   points = [];
-  accumulatedSinceLastPoint = 0;
   totalDistance = 0;
   maxSpeedKmh = 0;
   pausedAccumulatedMs = 0;
@@ -285,6 +281,7 @@ function stopWatching(): void {
 
 function resetActiveScreen(): void {
   stopWatching();
+  path = [];
   points = [];
   el('trail-signal-warning').classList.add('hidden');
   el('trail-toast').classList.add('hidden');
@@ -293,12 +290,9 @@ function resetActiveScreen(): void {
 // ---------- Finalize flow ----------
 
 function openFinalizeModal(): void {
-  if (points.length < 2) {
-    const remaining = 2 - points.length;
+  if (path.length < 2) {
     showTrailToast(
-      points.length === 0
-        ? 'Ainda sem pontos registrados. A precisão do GPS pode estar ruim demais (veja o card "Precisão GPS") — pontos só contam com precisão melhor que 30 m.'
-        : `Faltam ${remaining} ponto${remaining > 1 ? 's' : ''} para poder finalizar (mínimo de 2).`
+      'Ainda não há caminho suficiente registrado. A precisão do GPS pode estar ruim demais (veja o card "Precisão GPS") — o caminho só é gravado com precisão melhor que 30 m.'
     );
     return;
   }
@@ -319,18 +313,35 @@ async function saveTrail(): Promise<void> {
   const closed = selectedFinalizeChoice === 'closed';
   stopWatching();
 
+  // Always end with a marked point at the final position, even if the user never tapped
+  // "Marcar ponto" — so every saved trail has at least a start/end marker on the map.
+  if (hasGpsFix) {
+    const lastMark = points[points.length - 1];
+    const samePosition = lastMark && getDistanceMeters(lastMark.lat, lastMark.lon, currentLat, currentLon) < 1;
+    if (!samePosition) {
+      points.push({
+        timestamp: new Date().toISOString(),
+        lat: currentLat,
+        lon: currentLon,
+        alt: currentAlt,
+        acc: currentAcc,
+        speed: null,
+      });
+    }
+  }
+
   const durationSeconds = (Date.now() - startTime - pausedAccumulatedMs) / 1000;
   let distance = totalDistance;
-  if (closed && points.length >= 3) {
-    const first = points[0];
-    const last = points[points.length - 1];
+  if (closed && path.length >= 3) {
+    const first = path[0];
+    const last = path[path.length - 1];
     distance += getDistanceMeters(last.lat, last.lon, first.lat, first.lon);
   }
   const avgSpeed = distance > 0 && durationSeconds > 0 ? (distance / 1000) / (durationSeconds / 3600) : 0;
-  const areaHectares = closed ? computeAreaHectares(points) : 0;
+  const areaHectares = closed ? computeAreaHectares(path) : 0;
 
-  const first = points[0];
-  const last = points[points.length - 1];
+  const first = path[0];
+  const last = path[path.length - 1];
   const [startAddress, endAddress] = await Promise.all([
     geocodeOnce(first.lat, first.lon),
     geocodeOnce(last.lat, last.lon),
@@ -348,13 +359,14 @@ async function saveTrail(): Promise<void> {
     avgSpeed,
     maxSpeed: maxSpeedKmh,
     points,
+    path,
     startAddress,
     endAddress,
   });
 
   const straightLine = getDistanceMeters(first.lat, first.lon, last.lat, last.lon);
   const parts = [
-    `${points.length} pontos`,
+    points.length === 1 ? '1 ponto marcado' : `${points.length} pontos marcados`,
     closed ? `Perímetro: ${formatDistance(distance)}` : `Distância: ${formatDistance(distance)}`,
   ];
   if (!closed) parts.push(`Linha reta início-fim: ${formatDistance(straightLine)}`);
@@ -386,24 +398,12 @@ export function initTrail({ onBack, onSaved }: TrailOnDoneOptions = {}): void {
 
   el('trail-setup-back-btn').addEventListener('click', () => onBackCallback?.());
 
-  const slider = el<HTMLInputElement>('trail-interval-slider');
-  const numberInput = el<HTMLInputElement>('trail-interval-input');
-  slider.addEventListener('input', () => {
-    intervalMeters = clampInterval(Number(slider.value));
-    numberInput.value = String(intervalMeters);
-    updateIntervalLabel();
-  });
-  numberInput.addEventListener('change', () => {
-    intervalMeters = clampInterval(Number(numberInput.value));
-    slider.value = String(intervalMeters);
-    numberInput.value = String(intervalMeters);
-    updateIntervalLabel();
-  });
-
   el('trail-start-btn').addEventListener('click', () => {
     if (!navigator.geolocation) return;
     startTracking();
   });
+
+  el('trail-mark-btn').addEventListener('click', markPoint);
 
   el('trail-active-back-btn').addEventListener('click', () => {
     if (isTracking && !window.confirm('Sair sem salvar a trilha?')) return;

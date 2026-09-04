@@ -91,6 +91,14 @@ function formatDistance(meters: number): string {
   return meters < 1000 ? `${Math.round(meters)} m` : `${(meters / 1000).toFixed(2)} km`;
 }
 
+// The continuous GPS path is what draws the trail's real shape on the map (curves, not
+// straight lines) — falls back to the manually-marked points for trails saved before the
+// `path` field existed, or for video tracks (which never had one).
+function trailLine(track: TrackRecord): { lat: number; lon: number }[] {
+  if (track.path && track.path.length >= 2) return track.path;
+  return track.points;
+}
+
 function numberedIcon(n: number, color: string): L.DivIcon {
   return L.divIcon({
     className: 'map-marker',
@@ -487,9 +495,10 @@ async function exportMapImage(): Promise<void> {
       }
     });
     tracks.forEach((track, trackIdx) => {
-      if (track.points.length < 2) return;
+      const line = trailLine(track);
+      if (line.length < 2) return;
       const color = track.color || TRACK_COLORS[trackIdx % TRACK_COLORS.length];
-      const trackPts = track.points.map((p) => map.latLngToContainerPoint([p.lat, p.lon]));
+      const trackPts = line.map((p) => map.latLngToContainerPoint([p.lat, p.lon]));
       const pathPts = track.closed ? [...trackPts, trackPts[0]] : trackPts;
       drawPolylinePath(mapCtx, pathPts, color, 4);
     });
@@ -668,16 +677,19 @@ export async function renderMap(): Promise<void> {
   });
 
   tracks.forEach((track: TrackRecord, trackIdx) => {
-    if (track.points.length === 0) return;
+    const line = trailLine(track);
+    if (line.length === 0 && track.points.length === 0) return;
     if (track.id !== undefined && hiddenTrackIds.has(track.id)) return;
     const color = track.color || TRACK_COLORS[trackIdx % TRACK_COLORS.length];
-    const trackLatLngs: L.LatLngTuple[] = track.points.map((p) => [p.lat, p.lon]);
-    allBoundsPoints.push(...trackLatLngs);
+    const lineLatLngs: L.LatLngTuple[] = line.map((p) => [p.lat, p.lon]);
+    allBoundsPoints.push(...lineLatLngs);
 
-    if (track.closed && trackLatLngs.length >= 3) {
-      L.polygon(trackLatLngs, { color, weight: 4, opacity: 0.9, fillColor: color, fillOpacity: 0.15 }).addTo(tracksLayer as L.LayerGroup);
-    } else {
-      L.polyline(trackLatLngs, { color, weight: 4, opacity: 0.85 }).addTo(tracksLayer as L.LayerGroup);
+    if (lineLatLngs.length >= 2) {
+      if (track.closed && lineLatLngs.length >= 3) {
+        L.polygon(lineLatLngs, { color, weight: 4, opacity: 0.9, fillColor: color, fillOpacity: 0.15 }).addTo(tracksLayer as L.LayerGroup);
+      } else {
+        L.polyline(lineLatLngs, { color, weight: 4, opacity: 0.85 }).addTo(tracksLayer as L.LayerGroup);
+      }
     }
 
     const label = track.name || (track.kind === 'trail' ? 'Trilha' : 'Vídeo');

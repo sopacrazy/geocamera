@@ -34,6 +34,10 @@ export interface TrackRecord {
   avgSpeed: number;
   maxSpeed: number;
   points: TrackPoint[];
+  // Continuous GPS trace of the actual walked route — used to draw the real path on the
+  // map instead of straight lines between the manually-marked points above. Optional so
+  // trails/videos saved before this field existed keep loading (map.ts falls back to `points`).
+  path?: TrackPoint[];
   startAddress: string;
   endAddress: string;
 }
