@@ -163,6 +163,31 @@ function addPathPoint(lat: number, lon: number, alt: number | null, acc: number)
   path.push(point);
 }
 
+function renderMarksList(): void {
+  const panel = el('trail-marks-panel');
+  const list = el('trail-marks-list');
+
+  if (points.length === 0) {
+    panel.hidden = true;
+    list.innerHTML = '';
+    return;
+  }
+
+  panel.hidden = false;
+  list.innerHTML = points
+    .map((point, idx) => {
+      const num = idx + 1;
+      let value = 'Início';
+      if (idx > 0) {
+        const prev = points[idx - 1];
+        value = formatDistance(getDistanceMeters(prev.lat, prev.lon, point.lat, point.lon));
+      }
+      return `<div class="trail-marks-item"><span class="trail-marks-num">${num}</span><span class="trail-marks-value">${value}</span></div>`;
+    })
+    .join('');
+  list.scrollTop = list.scrollHeight;
+}
+
 function markPoint(): void {
   if (!isTracking || isPaused) return;
   if (!hasGpsFix) {
@@ -183,6 +208,7 @@ function markPoint(): void {
     speed: null,
   });
   updateLiveStats();
+  renderMarksList();
   showTrailToast(`Ponto ${points.length} marcado.`);
 }
 
@@ -240,6 +266,7 @@ function startTracking(): void {
   el('trail-signal-warning').classList.add('hidden');
   updateLiveStats();
   updateTimerDisplay();
+  renderMarksList();
 
   timerInterval = setInterval(updateTimerDisplay, 1000);
 
@@ -285,6 +312,7 @@ function resetActiveScreen(): void {
   points = [];
   el('trail-signal-warning').classList.add('hidden');
   el('trail-toast').classList.add('hidden');
+  renderMarksList();
 }
 
 // ---------- Finalize flow ----------
