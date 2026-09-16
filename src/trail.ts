@@ -1,5 +1,9 @@
+import * as L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { tileLayerOffline } from 'leaflet.offline';
 import { el } from './dom';
 import { addTrack, type TrackPoint } from './db';
+import { numberedIcon } from './map';
 
 const TRAIL_COLORS = ['#4A9EFF', '#FF9F4A', '#B26AFF', '#FF4D6A', '#4AD9C0', '#D4A017'];
 const MIN_ACCURACY_METERS = 30;
@@ -45,6 +49,128 @@ let selectedFinalizeChoice: FinalizeChoice | null = null;
 let onBackCallback: (() => void) | undefined;
 let onSavedCallback: (() => void) | undefined;
 let trailColorIndex = 0;
+
+// ---------- Live map ----------
+
+let trailMap: L.Map | null = null;
+let trailMapPathLine: L.Polyline | null = null;
+let trailMapMarksLayer: L.LayerGroup | null = null;
+let trailMapYouMarker: L.Marker | null = null;
+let trailMapFollow = true;
+let trailMapHasCentered = false;
+
+// Heading the car icon is pointing, and the last fix it was computed from — GPS jitter while
+// standing still would otherwise spin the car randomly, so bearing only updates once the
+// device has actually moved a bit.
+let carBearing = 0;
+let carBearingLat: number | null = null;
+let carBearingLon: number | null = null;
+const CAR_BEARING_MIN_METERS = 2;
+
+// Top-down car silhouette (points north/up at 0°) — the brighter panel is the windshield,
+// so which way it's rotated reads as "which way the car is facing".
+function carIconHtml(color: string): string {
+  return `<div class="trail-map-car-rotor"><svg viewBox="0 0 24 24" width="30" height="30">
+    <rect x="6" y="2" width="12" height="20" rx="5" fill="${color}" stroke="#fff" stroke-width="1.5"/>
+    <rect x="8" y="4.5" width="8" height="5" rx="2" fill="rgba(255,255,255,0.9)"/>
+    <rect x="8" y="15" width="8" height="4" rx="2" fill="rgba(255,255,255,0.45)"/>
+  </svg></div>`;
+}
+
+function buildCarIcon(color: string): L.DivIcon {
+  return L.divIcon({
+    className: 'trail-map-car',
+    html: carIconHtml(color),
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+  });
+}
+
+function bearingDegrees(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+function applyCarRotation(): void {
+  const rotor = trailMapYouMarker?.getElement()?.querySelector<HTMLElement>('.trail-map-car-rotor');
+  if (rotor) rotor.style.transform = `rotate(${carBearing}deg)`;
+}
+
+function ensureTrailMap(): L.Map {
+  if (trailMap) return trailMap;
+
+  const streets = tileLayerOffline('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    crossOrigin: true,
+    attribution: '&copy; OpenStreetMap',
+  });
+
+  trailMap = L.map('trail-map-container', { zoomControl: false, attributionControl: false, layers: [streets] });
+  trailMapPathLine = L.polyline([], { color: trailColor, weight: 4, opacity: 0.9 }).addTo(trailMap);
+  trailMapMarksLayer = L.layerGroup().addTo(trailMap);
+
+  trailMap.on('dragstart', () => {
+    trailMapFollow = false;
+    el('trail-map-locate-btn').classList.remove('is-following');
+  });
+
+  return trailMap;
+}
+
+function resetTrailMapForNewSession(): void {
+  const map = ensureTrailMap();
+  trailMapFollow = true;
+  trailMapHasCentered = false;
+  carBearing = 0;
+  carBearingLat = null;
+  carBearingLon = null;
+  el('trail-map-locate-btn').classList.add('is-following');
+  trailMapPathLine?.setStyle({ color: trailColor });
+  trailMapPathLine?.setLatLngs([]);
+  trailMapMarksLayer?.clearLayers();
+  trailMapYouMarker = null;
+  setTimeout(() => map.invalidateSize(), 100);
+}
+
+function updateTrailMapPosition(lat: number, lon: number): void {
+  const map = ensureTrailMap();
+  if (!trailMapYouMarker) {
+    trailMapYouMarker = L.marker([lat, lon], { icon: buildCarIcon(trailColor), zIndexOffset: 1000 }).addTo(map);
+  } else {
+    trailMapYouMarker.setLatLng([lat, lon]);
+  }
+
+  if (carBearingLat === null || carBearingLon === null) {
+    carBearingLat = lat;
+    carBearingLon = lon;
+  } else if (getDistanceMeters(carBearingLat, carBearingLon, lat, lon) >= CAR_BEARING_MIN_METERS) {
+    carBearing = bearingDegrees(carBearingLat, carBearingLon, lat, lon);
+    carBearingLat = lat;
+    carBearingLon = lon;
+    applyCarRotation();
+  }
+
+  if (!trailMapHasCentered) {
+    map.setView([lat, lon], 17);
+    trailMapHasCentered = true;
+  } else if (trailMapFollow) {
+    map.panTo([lat, lon]);
+  }
+}
+
+function addTrailMapMark(n: number, lat: number, lon: number): void {
+  L.marker([lat, lon], { icon: numberedIcon(n, trailColor) }).addTo(trailMapMarksLayer as L.LayerGroup);
+}
+
+function clearTrailMap(): void {
+  trailMapPathLine?.setLatLngs([]);
+  trailMapMarksLayer?.clearLayers();
+  trailMapYouMarker = null;
+}
 
 function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000;
@@ -120,12 +246,6 @@ function showSetupScreen(): void {
 
 // ---------- Active tracking screen ----------
 
-function accuracyColorClass(acc: number): string {
-  if (acc <= 10) return 'good';
-  if (acc <= MIN_ACCURACY_METERS) return 'ok';
-  return 'bad';
-}
-
 function updateTimerDisplay(): void {
   const elapsedMs = Date.now() - startTime - pausedAccumulatedMs;
   el('trail-timer').innerText = formatDuration(elapsedMs / 1000);
@@ -134,14 +254,6 @@ function updateTimerDisplay(): void {
 function updateLiveStats(): void {
   el('trail-point-count').innerText = points.length === 1 ? '1 ponto' : `${points.length} pontos`;
   el('trail-distance').innerText = formatDistance(totalDistance);
-  el('trail-coords').innerText = hasGpsFix
-    ? `${currentLat.toFixed(6)}, ${currentLon.toFixed(6)}`
-    : '--.------, --.------';
-  el('trail-altitude').innerText = currentAlt !== null ? `${currentAlt.toFixed(1)} m` : '--';
-
-  const accEl = el('trail-accuracy');
-  accEl.innerText = hasGpsFix ? `${currentAcc.toFixed(1)} m` : '-- m';
-  accEl.className = `trail-stat-value acc-${hasGpsFix ? accuracyColorClass(currentAcc) : 'bad'}`;
 }
 
 function addPathPoint(lat: number, lon: number, alt: number | null, acc: number): void {
@@ -161,31 +273,7 @@ function addPathPoint(lat: number, lon: number, alt: number | null, acc: number)
   }
 
   path.push(point);
-}
-
-function renderMarksList(): void {
-  const panel = el('trail-marks-panel');
-  const list = el('trail-marks-list');
-
-  if (points.length === 0) {
-    panel.hidden = true;
-    list.innerHTML = '';
-    return;
-  }
-
-  panel.hidden = false;
-  list.innerHTML = points
-    .map((point, idx) => {
-      const num = idx + 1;
-      let value = 'Início';
-      if (idx > 0) {
-        const prev = points[idx - 1];
-        value = formatDistance(getDistanceMeters(prev.lat, prev.lon, point.lat, point.lon));
-      }
-      return `<div class="trail-marks-item"><span class="trail-marks-num">${num}</span><span class="trail-marks-value">${value}</span></div>`;
-    })
-    .join('');
-  list.scrollTop = list.scrollHeight;
+  trailMapPathLine?.addLatLng([lat, lon]);
 }
 
 function markPoint(): void {
@@ -207,8 +295,8 @@ function markPoint(): void {
     acc: currentAcc,
     speed: null,
   });
+  addTrailMapMark(points.length, currentLat, currentLon);
   updateLiveStats();
-  renderMarksList();
   showTrailToast(`Ponto ${points.length} marcado.`);
 }
 
@@ -220,6 +308,7 @@ function handlePosition(pos: GeolocationPosition): void {
   hasGpsFix = true;
 
   el('trail-signal-warning').classList.add('hidden');
+  updateTrailMapPosition(currentLat, currentLon);
 
   if (currentAcc > MIN_ACCURACY_METERS) {
     updateLiveStats();
@@ -264,9 +353,9 @@ function startTracking(): void {
   el('trail-status-dot').classList.remove('paused');
   el('trail-pause-btn').innerText = 'Pausar';
   el('trail-signal-warning').classList.add('hidden');
+  resetTrailMapForNewSession();
   updateLiveStats();
   updateTimerDisplay();
-  renderMarksList();
 
   timerInterval = setInterval(updateTimerDisplay, 1000);
 
@@ -312,7 +401,7 @@ function resetActiveScreen(): void {
   points = [];
   el('trail-signal-warning').classList.add('hidden');
   el('trail-toast').classList.add('hidden');
-  renderMarksList();
+  clearTrailMap();
 }
 
 // ---------- Finalize flow ----------
@@ -320,7 +409,7 @@ function resetActiveScreen(): void {
 function openFinalizeModal(): void {
   if (path.length < 2) {
     showTrailToast(
-      'Ainda não há caminho suficiente registrado. A precisão do GPS pode estar ruim demais (veja o card "Precisão GPS") — o caminho só é gravado com precisão melhor que 30 m.'
+      'Ainda não há caminho suficiente registrado. A precisão do GPS pode estar ruim demais — o caminho só é gravado com precisão melhor que 30 m.'
     );
     return;
   }
@@ -432,6 +521,12 @@ export function initTrail({ onBack, onSaved }: TrailOnDoneOptions = {}): void {
   });
 
   el('trail-mark-btn').addEventListener('click', markPoint);
+
+  el('trail-map-locate-btn').addEventListener('click', () => {
+    trailMapFollow = true;
+    el('trail-map-locate-btn').classList.add('is-following');
+    if (hasGpsFix) ensureTrailMap().panTo([currentLat, currentLon]);
+  });
 
   el('trail-active-back-btn').addEventListener('click', () => {
     if (isTracking && !window.confirm('Sair sem salvar a trilha?')) return;

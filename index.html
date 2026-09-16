@@ -233,61 +233,55 @@
 
   <!-- ============ TRAIL ACTIVE ============ -->
   <div id="screen-trail-active" class="hidden">
-    <div class="screen-header trail-active-header">
-      <button type="button" class="back-btn" id="trail-active-back-btn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+    <div id="trail-map-container">
+      <button type="button" id="trail-map-locate-btn" class="trail-map-locate-btn is-following" aria-label="Centralizar no GPS">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M22 12h-3M5 12H2"/></svg>
       </button>
-      <h1 id="trail-name-display">Trilha</h1>
     </div>
 
-    <div id="trail-signal-warning" class="hidden">⚠ Sinal de GPS fraco</div>
+    <div class="trail-map-top">
+      <div class="trail-map-header">
+        <button type="button" class="back-btn" id="trail-active-back-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+        </button>
+        <div class="trail-map-header-info">
+          <h1 id="trail-name-display">Trilha</h1>
+          <div class="trail-status-row">
+            <span id="trail-status-dot" class="trail-dot"></span>
+            <span id="trail-status-text">RASTREANDO...</span>
+            <span id="trail-timer">00:00:00</span>
+          </div>
+        </div>
+      </div>
 
-    <div class="trail-status-row">
-      <span id="trail-status-dot" class="trail-dot"></span>
-      <span id="trail-status-text">RASTREANDO...</span>
-      <span id="trail-timer">00:00:00</span>
-    </div>
+      <div class="trail-map-chips">
+        <div class="trail-chip">
+          <span class="trail-chip-label">Pontos marcados</span>
+          <span class="trail-chip-value" id="trail-point-count">0 pontos</span>
+        </div>
+        <div class="trail-chip">
+          <span class="trail-chip-label">Distância</span>
+          <span class="trail-chip-value" id="trail-distance">0 m</span>
+        </div>
+      </div>
 
-    <div class="trail-stats-grid">
-      <div class="trail-stat">
-        <span class="trail-stat-label">Pontos marcados</span>
-        <span class="trail-stat-value" id="trail-point-count">0 pontos</span>
-      </div>
-      <div class="trail-stat">
-        <span class="trail-stat-label">Distância percorrida</span>
-        <span class="trail-stat-value" id="trail-distance">0 m</span>
-      </div>
-      <div class="trail-stat">
-        <span class="trail-stat-label">Precisão GPS</span>
-        <span class="trail-stat-value" id="trail-accuracy">-- m</span>
-      </div>
-      <div class="trail-stat">
-        <span class="trail-stat-label">Altitude</span>
-        <span class="trail-stat-value" id="trail-altitude">--</span>
-      </div>
-      <div class="trail-stat wide">
-        <span class="trail-stat-label">Coordenadas</span>
-        <span class="trail-stat-value" id="trail-coords">--.------, --.------</span>
-      </div>
-    </div>
-
-    <div id="trail-marks-panel" class="trail-marks-panel" hidden>
-      <div class="trail-marks-header">Pontos marcados</div>
-      <div id="trail-marks-list" class="trail-marks-list"></div>
+      <div id="trail-signal-warning" class="hidden">⚠ Sinal de GPS fraco</div>
     </div>
 
     <div id="trail-toast" class="hidden"></div>
 
-    <div class="trail-mark-row">
-      <button type="button" id="trail-mark-btn" class="trail-mark-btn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-        <span>Marcar ponto</span>
-      </button>
-    </div>
+    <div class="trail-map-bottom">
+      <div class="trail-mark-row">
+        <button type="button" id="trail-mark-btn" class="trail-mark-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span>Marcar ponto</span>
+        </button>
+      </div>
 
-    <div class="trail-active-actions">
-      <button type="button" id="trail-pause-btn" class="btn-pill btn-outline">Pausar</button>
-      <button type="button" id="trail-finalize-btn" class="btn-pill">Finalizar trilha</button>
+      <div class="trail-active-actions">
+        <button type="button" id="trail-pause-btn" class="btn-pill btn-outline">Pausar</button>
+        <button type="button" id="trail-finalize-btn" class="btn-pill">Finalizar trilha</button>
+      </div>
     </div>
   </div>
 

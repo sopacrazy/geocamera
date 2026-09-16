@@ -99,7 +99,7 @@ function trailLine(track: TrackRecord): { lat: number; lon: number }[] {
   return track.points;
 }
 
-function numberedIcon(n: number, color: string): L.DivIcon {
+export function numberedIcon(n: number, color: string): L.DivIcon {
   return L.divIcon({
     className: 'map-marker',
     html: `<span style="background:${color}">${n}</span>`,

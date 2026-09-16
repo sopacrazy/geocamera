@@ -545,67 +545,85 @@ body, html {
 #trail-start-btn { background: var(--trail-accent); color: #fff; }
 
 #screen-trail-active {
-  position: absolute; inset: 0; width: 100%; height: 100%; background: var(--bg);
-  display: flex; flex-direction: column; overflow-y: auto;
+  position: absolute; inset: 0; width: 100%; height: 100%; background: var(--bg); overflow: hidden;
 }
-.trail-active-header { position: static; background: none; }
-.trail-active-header h1 { font-size: 17px; font-weight: 800; color: var(--ink); margin: 0; flex: 1; }
+
+#trail-map-container { position: absolute; inset: 0; z-index: 1; }
+#trail-map-container .leaflet-container { background: var(--surface); font-family: inherit; }
+
+.trail-map-locate-btn {
+  position: absolute; right: 14px; z-index: 20;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 172px);
+  width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border);
+  background: rgba(10,10,10,0.75); color: var(--ink-dim); display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.4); cursor: pointer; padding: 0;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+.trail-map-locate-btn svg { width: 18px; height: 18px; }
+.trail-map-locate-btn.is-following { color: var(--trail-accent); border-color: var(--trail-accent); }
+
+/* "you are here" car marker — position (translate) is animated by Leaflet's own transform,
+   rotation (heading) is animated separately on the inner rotor so the two don't fight. */
+.trail-map-car { transition: transform 0.5s linear; }
+.trail-map-car-rotor {
+  width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+  transition: transform 0.4s linear;
+  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.55));
+}
+
+.trail-map-top {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 10;
+  display: flex; flex-direction: column; gap: 10px;
+  padding: calc(env(safe-area-inset-top, 0px) + 16px) 18px 26px;
+  background: linear-gradient(to bottom, rgba(10,10,10,0.85), transparent);
+  pointer-events: none;
+}
+.trail-map-header { display: flex; align-items: flex-start; gap: 12px; }
+.trail-map-header .back-btn { pointer-events: auto; flex-shrink: 0; background: rgba(10,10,10,0.65); }
+.trail-map-header-info { flex: 1; min-width: 0; padding-top: 2px; }
+.trail-map-header-info h1 {
+  margin: 0 0 4px; font-size: 17px; font-weight: 800; color: #fff;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.trail-status-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12.5px; font-weight: 700; color: #fff; letter-spacing: 0.3px;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.7);
+}
+.trail-status-row #trail-timer { margin-left: 4px; font-variant-numeric: tabular-nums; color: rgba(255,255,255,0.75); font-weight: 600; }
+.trail-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--trail-accent); box-shadow: 0 0 8px var(--trail-accent); animation: rec-pulse 1.1s ease-in-out infinite; flex-shrink: 0; }
+.trail-dot.paused { background: var(--amber); box-shadow: 0 0 8px var(--amber); animation: none; }
+
+.trail-map-chips { display: flex; gap: 10px; }
+.trail-chip {
+  flex: 1; background: rgba(10,10,10,0.72); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 16px; padding: 10px 14px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.trail-chip-label { display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: rgba(255,255,255,0.55); }
+.trail-chip-value { display: block; margin-top: 2px; font-size: 16px; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; }
 
 #trail-signal-warning {
-  margin: 0 20px 4px; padding: 10px 14px; border-radius: 12px; text-align: center;
-  background: rgba(255,177,0,0.14); border: 1px solid rgba(255,177,0,0.4);
-  color: var(--amber); font-size: 12.5px; font-weight: 700;
+  pointer-events: none; padding: 10px 14px; border-radius: 12px; text-align: center;
+  background: rgba(255,177,0,0.92); border: 1px solid rgba(255,177,0,0.4);
+  color: #1a1200; font-size: 12.5px; font-weight: 700;
 }
 #trail-toast {
-  margin: 0 20px 10px; padding: 12px 16px; border-radius: 14px; text-align: center;
+  position: absolute; left: 18px; right: 18px; z-index: 15;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 172px);
+  padding: 12px 16px; border-radius: 14px; text-align: center;
   background: rgba(10,10,10,0.92); border: 1px solid var(--border);
   color: #fff; font-size: 12.5px; font-weight: 600; line-height: 1.4;
   box-shadow: 0 8px 24px rgba(0,0,0,0.5); animation: toast-in 0.2s ease-out;
 }
 
-.trail-status-row {
-  display: flex; align-items: center; gap: 10px; padding: 14px 20px;
-  font-size: 13px; font-weight: 700; color: #fff; letter-spacing: 0.3px;
+.trail-map-bottom {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 10;
+  padding: 40px 20px calc(env(safe-area-inset-bottom, 0px) + 20px);
+  background: linear-gradient(to top, rgba(10,10,10,0.92) 45%, transparent);
 }
-.trail-status-row #trail-timer { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--ink-dim); font-weight: 600; }
-.trail-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--trail-accent); box-shadow: 0 0 8px var(--trail-accent); animation: rec-pulse 1.1s ease-in-out infinite; }
-.trail-dot.paused { background: var(--amber); box-shadow: 0 0 8px var(--amber); animation: none; }
 
-.trail-stats-grid {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 6px 20px 20px;
-}
-.trail-stat {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-  padding: 14px; display: flex; flex-direction: column; gap: 4px;
-}
-.trail-stat.wide { grid-column: 1 / -1; }
-.trail-stat-label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: var(--ink-faint); }
-.trail-stat-value { font-size: 17px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
-.trail-stat-value.acc-good { color: #2ECC71; }
-.trail-stat-value.acc-ok { color: var(--amber); }
-.trail-stat-value.acc-bad { color: var(--danger); }
-
-.trail-marks-panel {
-  margin: 0 20px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-  overflow: hidden;
-}
-.trail-marks-header {
-  padding: 10px 14px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
-  color: var(--ink-faint); border-bottom: 1px solid var(--border);
-}
-.trail-marks-list { max-height: 168px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-.trail-marks-item {
-  display: flex; align-items: center; gap: 10px; padding: 9px 14px;
-  font-size: 13px; color: var(--ink); border-bottom: 1px solid var(--border);
-}
-.trail-marks-item:last-child { border-bottom: none; }
-.trail-marks-num {
-  width: 22px; height: 22px; border-radius: 50%; background: var(--trail-accent); color: #fff;
-  display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; flex-shrink: 0;
-}
-.trail-marks-value { font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
-
-.trail-mark-row { margin-top: auto; padding: 12px 20px 0; }
+.trail-mark-row { padding: 0 0 10px; }
 .trail-mark-btn {
   width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;
   background: var(--trail-accent); color: #fff; border: none; border-radius: var(--r-full);
@@ -616,10 +634,7 @@ body, html {
 .trail-mark-btn svg { width: 19px; height: 19px; flex-shrink: 0; }
 .trail-mark-btn:active { transform: scale(0.98); opacity: 0.9; }
 
-.trail-active-actions {
-  display: flex; gap: 10px;
-  padding: 12px 20px calc(env(safe-area-inset-bottom, 0px) + 20px);
-}
+.trail-active-actions { display: flex; gap: 10px; }
 .trail-active-actions .btn-pill { margin: 0; }
 #trail-finalize-btn { background: var(--surface-2); color: var(--ink); }
 
